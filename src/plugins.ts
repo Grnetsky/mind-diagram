@@ -123,7 +123,7 @@ export let toolBoxPlugin: any = {
           // toolBoxPlugin.calChildrenPosition(pen,true);
           // toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
           // meta2d.render();
-          toolBoxPlugin.addNode(pen,true);
+          toolBoxPlugin.addNode(pen);
         }
       },
       {
@@ -153,7 +153,9 @@ export let toolBoxPlugin: any = {
         event: 'click',
         func: async (pen)=>{
           if(pen.mind.type === 'mind-node-1' ){
-            await toolBoxPlugin.addNode(pen,true);
+            let parent = meta2d.findOne(pen.mind.preNodeId);
+            let index = parent.mind.children.indexOf(pen);
+            await toolBoxPlugin.addNode(parent,index+1);
           }
         }
       },
@@ -161,24 +163,7 @@ export let toolBoxPlugin: any = {
         name: '新增子级节点',
         event: 'click',
         func: async (pen)=>{
-          let newPen = await meta2d.addPen({
-            name:'mindNode2',
-            mind:{
-              isRoot: false,
-              preNodeId:pen.id,
-              children: []
-            },
-            text:pen.text+1,
-            x:pen.x ,
-            y:pen.y ,
-            width: pen.width,
-            height: pen.height,
-            borderRadius: pen.borderRadius,
-          });
-          pen.mind.children.push(newPen);
-          toolBoxPlugin.calChildrenPosition(pen,true);
-          toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
-          meta2d.render();
+          toolBoxPlugin.addNode(pen);
         }
       },
       {
@@ -233,7 +218,7 @@ export let toolBoxPlugin: any = {
     });
   },
   // 增加节点  同级设level为true
-  async addNode(pen, level = false, type = "mindNode2"){
+  async addNode(pen,position = 0, type = "mindNode2",){
     let newPen = await meta2d.addPen({
       name:type,
       mind:{
@@ -250,11 +235,18 @@ export let toolBoxPlugin: any = {
       text: '分支主题',
       borderRadius: pen.borderRadius,
     });
-    pen.mind.children.push(newPen);
+    if(position){
+      pen.mind.children.splice(position,0,newPen);
+    }else{
+      pen.mind.children.push(newPen);
+    }
     // toolBoxPlugin.calChildrenPosition(pen.t);
     toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
     // toolBoxPlugin.calChildrenPosition(pen);
+
     toolBoxPlugin.calChildrenPosition(meta2d.findOne(pen.mindManager.rootId),true);
+    let line = meta2d.connectLine(pen,newPen,pen.anchors[1],newPen.anchors[3],false);
+    meta2d.updateLineType(line, 'curve');
     meta2d.render();
   },
   calcMaxHandW(pen){
