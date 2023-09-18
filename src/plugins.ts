@@ -1,4 +1,4 @@
-import {Pen} from "@meta2d/core";
+import {getRect, Pen} from "@meta2d/core";
 import {ToolBox} from "@meta2d/mind-diagram/src/toolBox";
 
 export interface Plugin {
@@ -17,41 +17,45 @@ export let openAndClosePlugin: Plugin = {
 export let toolBoxPlugin: any = {
   name:'toolBox',
   status: false,
-  childrenGap: 50,
+  childrenGap: 20,
   levelGap: 200,
   calChildrenPosition(pen,recursion = false){
     if(!pen)return;
     let children = pen.mind?.children;
     if(!children)return;
     let worldReact = meta2d.getPenRect(pen); //获取该节点的世界坐标宽度信息
-    let allHeight = 0; // 子节点所占的高度
+    // let allHeight = 0; // 子节点所占的高度
     let allWidth = 0; // 子节点所占的宽度
     // 子节点的世界坐标信息集合
     let penRects = [];
     for(let i = 0 ;i<children.length;i++){
       let child = children[i];
-      let worldRect = meta2d.getPenRect(child);
-      penRects.push(worldRect);
-      allHeight += pen.mind?.maxHeight || worldRect.height; //TODO 这应该是该节点所有子节点的所占高度
-      worldRect.width > allWidth?(allWidth = worldRect.width):'';
+      let childWorldRect = meta2d.getPenRect(child);
+      penRects.push(childWorldRect);
     }
-    allHeight += (children.length - 1) * toolBoxPlugin.childrenGap; // 加上gap
     let topHeight = 0;
     // 设置值
-
+    let allHeight = toolBoxPlugin.calcMaxHeight(pen);
+    if(pen.text === '666'){
+      console.log(allHeight,'allHeight');
+    }
     for(let i = 0;i<children.length;i++){
       // 循环设置每个
       let child = children[i]; // 获取子元素
-      topHeight += ((children[i-1]?.mind?.maxHeight || penRects[i-1]?.height) || 0) + toolBoxPlugin.childrenGap;
+      if(child.text === '666'){
+        console.log(topHeight);
+      }
+      topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
+      if(child.text === '666'){
+        console.log(children[i-1]?.mind.maxHeight,'child max height');
+        console.log(topHeight,'topHeight');
+      }
       meta2d.setValue({
         id:child.id,
         x: worldReact.x + worldReact.width + toolBoxPlugin.levelGap,
-        y:worldReact.y - 1 / 2 * allHeight - 1/2 * worldReact.height + topHeight
+        y:worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0)
       },{render:false});
     }
-
-    pen.mind.maxHeight = worldReact.height > allHeight? worldReact.height : allHeight;
-
     let lastChild = children.length>0?children[children.length-1]:false;
     if(lastChild && (!lastChild.connectedLines || lastChild.connectedLines?.length === 0)){
       let line = meta2d.connectLine(pen,lastChild,pen.anchors[1],lastChild.anchors[3],false);
@@ -101,25 +105,25 @@ export let toolBoxPlugin: any = {
         name: '新增子级节点',
         event: 'click',
         func: async (pen)=>{
-          let newPen = await meta2d.addPen({
-            name:'mindNode2',
-            mind:{
-              isRoot: false,
-              preNodeId:pen.id,
-              children: []
-            },
-            text:pen.text+1,
-            x:pen.x ,
-            y:pen.y ,
-            width: pen.width,
-            height: pen.height,
-            borderRadius: pen.borderRadius,
-          });
-          pen.mind.children.push(newPen);
-          toolBoxPlugin.calChildrenPosition(pen,true);
-          toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
-          meta2d.render();
-          // toolBoxPlugin.addNode(pen);
+          // let newPen = await meta2d.addPen({
+          //   name:'mindNode2',
+          //   mind:{
+          //     isRoot: false,
+          //     preNodeId:pen.id,
+          //     children: []
+          //   },
+          //   text:pen.text+1,
+          //   x:pen.x ,
+          //   y:pen.y ,
+          //   width: pen.width,
+          //   height: pen.height,
+          //   borderRadius: pen.borderRadius,
+          // });
+          // pen.mind.children.push(newPen);
+          // toolBoxPlugin.calChildrenPosition(pen,true);
+          // toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
+          // meta2d.render();
+          toolBoxPlugin.addNode(pen,true);
         }
       },
       {
@@ -188,6 +192,23 @@ export let toolBoxPlugin: any = {
       }
     ]
   },
+  calcMaxHeight(pen){
+    let children = pen.mind.children || [];
+    let worldRect = meta2d.getPenRect(pen);
+    if(children.length ===0){
+      pen.mind.maxHeight = worldRect.height;
+      return worldRect.height;
+    }
+    let maxHeight = 0;
+    for(let i = 0;i<children.length;i++){
+      let child = children[i];
+      maxHeight += toolBoxPlugin.calcMaxHeight(child);
+    }
+    maxHeight += toolBoxPlugin.childrenGap * (children.length - 1);
+    let max = maxHeight > worldRect.height?maxHeight : worldRect.height;
+    pen.mind.maxHeight = max;
+    return max;
+  },
   combineLifeCycle(target){
     let toolbox = meta2d.toolbox;
     let translateToolBox = debounce(toolbox.translatePosition.bind(toolbox),200);
@@ -200,7 +221,7 @@ export let toolBoxPlugin: any = {
     setLifeCycleFunc(target,'onDestroy',(targetPen)=>{
       toolbox.hide();
       toolBoxPlugin.deleteNode(targetPen);
-      toolBoxPlugin.calChildrenPosition(meta2d.findOne(targetPen.mind.preNodeId));
+      toolBoxPlugin.calChildrenPosition(meta2d.findOne(targetPen.mind.preNodeId),true);
     });
     setLifeCycleFunc(target,'onMouseUp',(targetPen)=>{
       toolbox.bindPen(targetPen);
@@ -232,6 +253,7 @@ export let toolBoxPlugin: any = {
     pen.mind.children.push(newPen);
     // toolBoxPlugin.calChildrenPosition(pen.t);
     toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
+    // toolBoxPlugin.calChildrenPosition(pen);
     toolBoxPlugin.calChildrenPosition(meta2d.findOne(pen.mindManager.rootId),true);
     meta2d.render();
   },
