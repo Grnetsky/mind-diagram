@@ -35,24 +35,14 @@ export let toolBoxPlugin: any = {
     }
     let topHeight = 0;
     // 设置值
-    let allHeight = toolBoxPlugin.calcMaxHeight(pen);
-    if(pen.text === '666'){
-      console.log(allHeight,'allHeight');
-    }
+    toolBoxPlugin.calcMaxHeight(pen);
     for(let i = 0;i<children.length;i++){
       // 循环设置每个
       let child = children[i]; // 获取子元素
-      if(child.text === '666'){
-        console.log(topHeight);
-      }
       topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
-      if(child.text === '666'){
-        console.log(children[i-1]?.mind.maxHeight,'child max height');
-        console.log(topHeight,'topHeight');
-      }
       meta2d.setValue({
         id:child.id,
-        x: worldReact.x + worldReact.width + toolBoxPlugin.levelGap,
+        x: worldReact.x + pen.mind.maxWidth + toolBoxPlugin.levelGap ,
         y:worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0)
       },{render:false});
     }
@@ -182,17 +172,28 @@ export let toolBoxPlugin: any = {
     let worldRect = meta2d.getPenRect(pen);
     if(children.length ===0){
       pen.mind.maxHeight = worldRect.height;
-      return worldRect.height;
+      pen.mind.maxWidth = worldRect.width;
+      return {
+        maxHeight: worldRect.height,
+        maxWidth: worldRect.width
+      };
     }
     let maxHeight = 0;
+    let maxWidth = 0;
     for(let i = 0;i<children.length;i++){
       let child = children[i];
-      maxHeight += toolBoxPlugin.calcMaxHeight(child);
+      let maxObj = toolBoxPlugin.calcMaxHeight(child);
+      maxHeight += maxObj.maxHeight;
+      maxWidth = maxWidth > maxObj.maxWidth? maxWidth : maxObj.maxWidth;
     }
     maxHeight += toolBoxPlugin.childrenGap * (children.length - 1);
-    let max = maxHeight > worldRect.height?maxHeight : worldRect.height;
-    pen.mind.maxHeight = max;
-    return max;
+    let maxH = maxHeight > worldRect.height?maxHeight : worldRect.height;
+    pen.mind.maxHeight = maxH;
+    pen.mind.maxWidth = maxWidth;
+    return {
+      maxHeight:maxH,
+      maxWidth
+    };
   },
   combineLifeCycle(target){
     let toolbox = meta2d.toolbox;
