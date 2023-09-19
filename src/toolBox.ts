@@ -13,7 +13,7 @@ export class ToolBox {
     this.box.style.borderRadius = '5px';
     this.box.style.boxShadow = '0px 6px 20px rgba(25,25,26,.06), 0px 2px 12px rgba(25,25,26,.04)';
     this.box.style.width = 'max-content';
-    this.box.style.height = '38px';
+    this.box.style.height = '40px';
     this.box.style.padding = '6px';
     this.box.className = 'toolBox';
     this.box.style.display = 'none';
@@ -30,6 +30,7 @@ export class ToolBox {
     this.box.style.display = 'none';
   }
   bindPen(pen){
+    console.log('bindPen',pen);
     this.pen = pen;
   }
   show(){
@@ -63,7 +64,7 @@ export class ToolBox {
       "justify-content: center;" +
       "align-items: center;" +
       "height: 100%;" +
-      "margin: 0 6px;" +
+      "margin: 0 1px;" +
       "cursor: pointer;" +
       "transition: all .3s ease;" +
       "border-radius: 5px;" +
@@ -77,7 +78,6 @@ export class ToolBox {
       if(i.name){
         let itemsSpan =this.setChildDom(this.pen,i);
         itemsSpan.className = 'toolbox_item';
-        itemsSpan.innerText = i.name;
         fragmentChild.appendChild(itemsSpan);
       }
     });
@@ -91,7 +91,7 @@ export class ToolBox {
    * */
   setChildDom(pen, item ){
     const dom = document.createElement('span');
-    dom.innerText = item.name;
+    dom.innerHTML = item.icon? `<img/ src="${item.icon}" title="${item.name}">` : item.name;
     typeof item.style === 'object' && this.setStyle(dom, item.style);
     if(item.event){
       let eventFunc = function (){

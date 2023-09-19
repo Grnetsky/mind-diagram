@@ -25,6 +25,17 @@ export let MindManger = {
   uninstallPlugin
 };
 
+
+export function* generateColor() {
+  const colorList = ['#ee353e','#ff7a10','#f6f217','#65ff0e',
+    '#1dfaf3','#019efc','#aa15ff'
+  ];let index = 0;
+  while(true) {
+    yield colorList[index];
+    index = (index + 1) % colorList.length;
+  }
+}
+
 export function installPlugin(mindManager,plugin,...args) {
   if (validatePlugin(plugin)) {
     if(beforeInstallPlugin(mindManager,plugin)){
