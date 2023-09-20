@@ -2,9 +2,6 @@ import {getRect, Pen} from "@meta2d/core";
 import {ToolBox} from "@meta2d/mind-diagram/src/toolBox";
 import {
   generateColor,
-  generateRandomBrightColor,
-  generateRandomVibrantColor,
-  getRandomColor
 } from "@meta2d/mind-diagram";
 
 export interface Plugin {
@@ -25,7 +22,8 @@ export let toolBoxPlugin: any = {
   status: false,
   childrenGap: 20,
   levelGap: 200,
-  calChildrenPosition(pen,recursion = false){
+  // 计算子节点的颜色和位置
+  calChildrenPosAndColor(pen,recursion = true){
     if(!pen)return;
     let children = pen.mind?.children;
     if(!children)return;
@@ -47,26 +45,56 @@ export let toolBoxPlugin: any = {
       // 循环设置每个
       let child = children[i]; // 获取子元素
       topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
-
+      let nodeColor = generateColorFunc.next().value;
+      child.mind.x = worldReact.x + pen.mind.maxWidth + toolBoxPlugin.levelGap;
+      child.mind.y = worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
+      child.mind.color = nodeColor;
       meta2d.setValue({
-        id:child.id,
-        x: worldReact.x + pen.mind.maxWidth + toolBoxPlugin.levelGap ,
-        y:worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0),
-        color: generateColorFunc.next().value,
+        id: child.id,
+        x: child.mind.x,
+        y: child.mind.y,
+        color: nodeColor
       },{render:false});
+      if(recursion) toolBoxPlugin.calChildrenPosAndColor(child,true);
+
+      // meta2d.setValue({
+      //   id:child.id,
+      //   x: worldReact.x + pen.mind.maxWidth + toolBoxPlugin.levelGap ,
+      //   y:worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0),
+      //   color:nodeColor
+      // },{render:false});
+      // meta2d.setValue({id:child.connectedLines[0].id,color:nodeColor,},{render:false});
     }
-    let lastChild = children.length>0?children[children.length-1]:false;
-    if(lastChild && (!lastChild.connectedLines || lastChild.connectedLines?.length === 0)){
-      let line = meta2d.connectLine(pen,lastChild,pen.anchors[1],lastChild.anchors[3],false);
-      meta2d.updateLineType(line, 'curve');
-    }
-    if(recursion){
-      for (let i = 0;i <children.length;i++){
-        let child = children[i];
-        toolBoxPlugin.calChildrenPosition(child,true);
+    // 最后添加的图元
+    // let lastChild = children.find(child=>!child.connectedLines || child.connectedLines.length === 0);
+    // if(lastChild && (!lastChild.connectedLines || lastChild.connectedLines?.length === 0)) {
+    //   meta2d.updateLineType(line, 'curve');
+    //   meta2d.setValue({id: line.id, color: lastChild.calculative.color, lineWidth: 2}, {render: false});
+    // }
+  },
+  connectLine(pen,newPen,style = 'curve'){
+    let line = meta2d.connectLine(pen, newPen, pen.anchors[1], newPen.anchors[3], false);
+    meta2d.updateLineType(line, style);
+  },
+  reSetLines(pen,recursion = true){
+    let colors = generateColor();
+    let children = pen.mind.children;
+    if(!children || children.length === 0 )return;
+    for(let i = 0 ;i<children.length;i++){
+      const child = children[i];
+      let line = child.connectedLines?.[0];
+      if(line){
+        line.mind? '' : line.mind = {};
+        line.mind.color = colors.next().value;
+      }
+      meta2d.setValue({
+        id:line.lineId,
+        color: line.mind.color
+      },{render:false});
+      if(recursion){
+          toolBoxPlugin.reSetLines(child,true);
       }
     }
-    meta2d.render();
   },
   deleteLines(pen){
     if(!pen)return;
@@ -122,7 +150,7 @@ export let toolBoxPlugin: any = {
           // toolBoxPlugin.calChildrenPosition(pen,true);
           // toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
           // meta2d.render();
-          toolBoxPlugin.addNode(pen);
+          toolBoxPlugin.addNode(pen,0);
         },
         icon:'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMzRweCIgaGVpZ2h0PSIzNHB4IiB2aWV3Qm94PSIwIDAgMzQgMzQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+5LiL57qn6IqC54K5PC90aXRsZT4KICAgIDxkZWZzPgogICAgICAgIDxyZWN0IGlkPSJwYXRoLTEiIHg9IjE0IiB5PSIxOCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjciIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgPG1hc2sgaWQ9Im1hc2stMiIgbWFza0NvbnRlbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIG1hc2tVbml0cz0ib2JqZWN0Qm91bmRpbmdCb3giIHg9IjAiIHk9IjAiIHdpZHRoPSIxNiIgaGVpZ2h0PSI3IiBmaWxsPSJ3aGl0ZSI+CiAgICAgICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI3BhdGgtMSI+PC91c2U+CiAgICAgICAgPC9tYXNrPgogICAgPC9kZWZzPgogICAgPGcgaWQ9Iumhtemdoi0xIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0i5Zu65a6aIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzM2LjAwMDAwMCwgLTI3LjAwMDAwMCkiPgogICAgICAgICAgICA8ZyBpZD0i57yW57uELTLlpIfku70iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4Mi4wMDAwMDAsIDI0LjAwMDAwMCkiPgogICAgICAgICAgICAgICAgPGcgaWQ9IuS4i+e6p+iKgueCuSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0LjAwMDAwMCwgMy4wMDAwMDApIj4KICAgICAgICAgICAgICAgICAgICA8cmVjdCBpZD0i6YCP5piO5bqV5Zu+IiBmaWxsLW9wYWNpdHk9IjAiIGZpbGw9IiNGRkZGRkYiIHg9IjAiIHk9IjAiIHdpZHRoPSIzNCIgaGVpZ2h0PSIzNCI+PC9yZWN0PgogICAgICAgICAgICAgICAgICAgIDxyZWN0IGlkPSLnn6nlvaLlpIfku70tNiIgc3Ryb2tlPSIjODE4MTg3IiB4PSI0LjUiIHk9IjguNSIgd2lkdGg9IjE1IiBoZWlnaHQ9IjYiIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMjIiIHgyPSIxNCIgeTI9IjIyIiBpZD0i55u057q/LTciIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIyIiBpZD0i55u057q/LTYiIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPHVzZSBpZD0i55+p5b2i5aSH5Lu9LTUiIHN0cm9rZT0iIzlDOUNBNSIgbWFzaz0idXJsKCNtYXNrLTIpIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjIiIHhsaW5rOmhyZWY9IiNwYXRoLTEiPjwvdXNlPgogICAgICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4='
 
@@ -133,7 +161,7 @@ export let toolBoxPlugin: any = {
         func(pen){
           let children = pen.mind?.children || [];
           if(children.length >0){
-            toolBoxPlugin.calChildrenPosition(pen,true);
+            toolBoxPlugin.update(pen,true);
           }
         }
       },
@@ -143,7 +171,7 @@ export let toolBoxPlugin: any = {
         func(pen){
           let children = pen.mind?.children || [];
           if(children.length >0){
-            toolBoxPlugin.calChildrenPosition(pen,false);
+            toolBoxPlugin.update(pen,false);
           }
         }
       },
@@ -168,7 +196,7 @@ export let toolBoxPlugin: any = {
         name: '新增子级节点',
         event: 'click',
         func: async (pen)=>{
-          toolBoxPlugin.addNode(pen);
+          await toolBoxPlugin.addNode(pen,0);
         },
         icon:'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMzRweCIgaGVpZ2h0PSIzNHB4IiB2aWV3Qm94PSIwIDAgMzQgMzQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+5LiL57qn6IqC54K5PC90aXRsZT4KICAgIDxkZWZzPgogICAgICAgIDxyZWN0IGlkPSJwYXRoLTEiIHg9IjE0IiB5PSIxOCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjciIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgPG1hc2sgaWQ9Im1hc2stMiIgbWFza0NvbnRlbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIG1hc2tVbml0cz0ib2JqZWN0Qm91bmRpbmdCb3giIHg9IjAiIHk9IjAiIHdpZHRoPSIxNiIgaGVpZ2h0PSI3IiBmaWxsPSJ3aGl0ZSI+CiAgICAgICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI3BhdGgtMSI+PC91c2U+CiAgICAgICAgPC9tYXNrPgogICAgPC9kZWZzPgogICAgPGcgaWQ9Iumhtemdoi0xIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0i5Zu65a6aIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzM2LjAwMDAwMCwgLTI3LjAwMDAwMCkiPgogICAgICAgICAgICA8ZyBpZD0i57yW57uELTLlpIfku70iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4Mi4wMDAwMDAsIDI0LjAwMDAwMCkiPgogICAgICAgICAgICAgICAgPGcgaWQ9IuS4i+e6p+iKgueCuSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0LjAwMDAwMCwgMy4wMDAwMDApIj4KICAgICAgICAgICAgICAgICAgICA8cmVjdCBpZD0i6YCP5piO5bqV5Zu+IiBmaWxsLW9wYWNpdHk9IjAiIGZpbGw9IiNGRkZGRkYiIHg9IjAiIHk9IjAiIHdpZHRoPSIzNCIgaGVpZ2h0PSIzNCI+PC9yZWN0PgogICAgICAgICAgICAgICAgICAgIDxyZWN0IGlkPSLnn6nlvaLlpIfku70tNiIgc3Ryb2tlPSIjODE4MTg3IiB4PSI0LjUiIHk9IjguNSIgd2lkdGg9IjE1IiBoZWlnaHQ9IjYiIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMjIiIHgyPSIxNCIgeTI9IjIyIiBpZD0i55u057q/LTciIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIyIiBpZD0i55u057q/LTYiIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPHVzZSBpZD0i55+p5b2i5aSH5Lu9LTUiIHN0cm9rZT0iIzlDOUNBNSIgbWFzaz0idXJsKCNtYXNrLTIpIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjIiIHhsaW5rOmhyZWY9IiNwYXRoLTEiPjwvdXNlPgogICAgICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4='
       },
@@ -177,7 +205,7 @@ export let toolBoxPlugin: any = {
         event:'click',
         func(pen){
           if(pen.mind.children.length >0){
-            toolBoxPlugin.calChildrenPosition(pen,false);
+            toolBoxPlugin.update(pen,false);
           }
         }
       }
@@ -211,13 +239,11 @@ export let toolBoxPlugin: any = {
       maxWidth
     };
   },
-  calcChildColor(child){
 
-  },
   combineLifeCycle(target){
     let toolbox = meta2d.toolbox;
-    let translateToolBox = debounce(toolbox.translatePosition.bind(toolbox),200 );
-    let bindPenDebounce = debounce(toolbox.bindPen.bind(toolbox),200);
+    // let translateToolBox = debounce(toolbox.translatePosition.bind(toolbox),200 );
+    // let bindPenDebounce = debounce(toolbox.bindPen.bind(toolbox),200);
     setLifeCycleFunc(target,'onMove',(targetPen)=>{
       toolbox.hide();
       // translateToolBox(targetPen);
@@ -227,7 +253,7 @@ export let toolBoxPlugin: any = {
     setLifeCycleFunc(target,'onDestroy',(targetPen)=>{
       toolbox.hide();
       toolBoxPlugin.deleteNode(targetPen);
-      toolBoxPlugin.calChildrenPosition(meta2d.findOne(targetPen.mind.preNodeId),true);
+      toolBoxPlugin.update(meta2d.findOne(targetPen.mind.preNodeId),true);
     });
     setLifeCycleFunc(target,'onMouseUp',(targetPen)=>{
       toolbox.bindPen(targetPen);
@@ -265,37 +291,25 @@ export let toolBoxPlugin: any = {
     }else{
       pen.mind.children.push(newPen);
     }
-    // toolBoxPlugin.calChildrenPosition(pen.t);
     toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
+    toolBoxPlugin.connectLine(pen,newPen);
+    let rootNode = meta2d.findOne(pen.mindManager.rootId);
+    toolBoxPlugin.update(rootNode,true);
     // toolBoxPlugin.calChildrenPosition(pen);
-
-    toolBoxPlugin.calChildrenPosition(meta2d.findOne(pen.mindManager.rootId),true);
-    let line = meta2d.connectLine(pen,newPen,pen.anchors[1],newPen.anchors[3],false);
     meta2d.toolbox.bindPen(newPen);
     meta2d.toolbox.setFuncList(toolBoxPlugin.funcList['leaf']);
     meta2d.toolbox.translatePosition(newPen);
-    meta2d.updateLineType(line, 'curve');
-    meta2d.render();
   },
-  calcMaxHandW(pen){
-    let children = pen.mind.children;
-    for (let i = 0;i<children.length;i++){}
+  // TODO 似乎这里有bug？ getPenRect值不是最新的
+  update(pen,recursion = true){
+    toolBoxPlugin.calChildrenPosAndColor(pen,recursion);
+    toolBoxPlugin.reSetLines(pen,recursion);
+    toolBoxPlugin.render();
+  },
+  render(){
+    meta2d.render();
   }
 };
-
-
-// 防抖函数
-function debounce(func,delay){
-  let timeout; //定时器
-  return function(arg){
-    // 判断定时器是否存在，存在的话进行清除，重新进行定时器计数
-    if(timeout) clearTimeout(timeout);//清除之前的事件
-    timeout = setTimeout(()=>{
-      func.call(this,arg);//执行事件
-    },delay);
-  };
-}
-
 
 /**
  * @description 闭包 重写 pen的生命周期，为了追加回调函数

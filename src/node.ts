@@ -1,7 +1,8 @@
 import {leChartPen} from "@meta2d/le5le-charts/src/common";
 import {installPlugin, MindManger, openAndClosePlugin, toolBoxPlugin} from "@meta2d/mind-diagram";
 import {mind, rectangle} from "@meta2d/core/src/diagrams";
-import {deepClone} from "@meta2d/core";
+import {deepClone, Pen} from "@meta2d/core";
+
 
 // 创建节点的函数
 export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentId = '') {
@@ -39,7 +40,8 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
     pen.onClick = click;
   }
 
-  return rectangle(pen,ctx);
+
+  return nodePen(pen,ctx);
 }
 function mouseEnter(pen) {
   // show add Button
@@ -51,4 +53,31 @@ function mouseLeave(pen) {
 function click(pen){
   // toolbox show
 
+}
+
+export function nodePen(pen: Pen, ctx?: CanvasRenderingContext2D): Path2D {
+  const path = !ctx ? new Path2D() : ctx;
+  let wr = pen.calculative.borderRadius || 0,
+    hr = wr;
+  const { x, y, width, height, ex, ey } = pen.calculative.worldRect;
+  if (wr < 1) {
+    wr = width * wr;
+    hr = height * hr;
+  }
+  let r = wr < hr ? wr : hr;
+  if (width < 2 * r) {
+    r = width / 2;
+  }
+  if (height < 2 * r) {
+    r = height / 2;
+  }
+
+  path.moveTo(x + r, y);
+  path.arcTo(ex, y, ex, ey, r);
+  path.arcTo(ex, ey, x, ey, r);
+  path.arcTo(x, ey, x, y, r);
+  path.arcTo(x, y, ex, y, r);
+  if (path instanceof Path2D) {
+    return path;
+  }
 }
