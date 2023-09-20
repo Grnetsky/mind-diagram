@@ -1,5 +1,11 @@
 import {leChartPen} from "@meta2d/le5le-charts/src/common";
-import {installPlugin, MindManger, openAndClosePlugin, toolBoxPlugin} from "@meta2d/mind-diagram";
+import {
+  CollapseChildPlugin,
+  installPlugin,
+  MindManger,
+  openAndClosePlugin,
+  toolBoxPlugin
+} from "@meta2d/mind-diagram";
 import {mind, rectangle} from "@meta2d/core/src/diagrams";
 import {deepClone, Pen} from "@meta2d/core";
 
@@ -7,6 +13,7 @@ import {deepClone, Pen} from "@meta2d/core";
 // 创建节点的函数
 export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentId = '') {
   pen.mind = pen.mind ?? {};
+  pen.mind.visible = true;
   let prePen = meta2d.findOne(pen.mind.preNodeId); //TODO  获取父节点 可能会有多个？暂时不处理'
   pen.mind.type = 'mind-node-1'; //标记为脑图1号节点
   if(prePen){
@@ -28,6 +35,7 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
     pen.mindManager.rootId = pen.id;
     installPlugin(pen.mindManager,openAndClosePlugin);
     installPlugin(pen.mindManager,toolBoxPlugin);
+    installPlugin(pen.mindManager,CollapseChildPlugin);
   }else {
     // (pen.mindManager.data.children.length === 0) && (pen.mind.isRoot = true);
   }

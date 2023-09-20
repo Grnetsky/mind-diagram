@@ -1,5 +1,5 @@
-import {getRect, Pen} from "@meta2d/core";
-import {ToolBox} from "@meta2d/mind-diagram/src/toolBox";
+import {getRect, Pen, setGlobalAlpha} from "@meta2d/core";
+import {ToolBox, CollapseButton} from "@meta2d/mind-diagram/src/dom";
 import {
   generateColor,
 } from "@meta2d/mind-diagram";
@@ -9,6 +9,36 @@ export interface Plugin {
   install:(manager,...args)=> void;
   status:boolean;
 }
+
+class PubSub {
+  private subscribers: { [event: string]: [(data: any) => void] } = {};
+
+  // 订阅事件
+  subscribe(event: string, callback: (data: any) => void): void {
+    if (!this.subscribers[event]) {
+      // @ts-ignore
+      this.subscribers[event] = [];
+    }
+    this.subscribers[event].push(callback);
+  }
+
+  // 取消订阅
+  unsubscribe(event: string, callback: (data: any) => void): void {
+    if (this.subscribers[event]) {
+      // @ts-ignore
+      this.subscribers[event] = this.subscribers[event].filter((subscriberCallback) => subscriberCallback !== callback);
+    }
+  }
+
+  // 发布事件
+  publish(event: string, data: any): void {
+    if (this.subscribers[event]) {
+      this.subscribers[event].forEach((callback) => callback(data));
+    }
+  }
+}
+
+let pluginsMessageChannels = new PubSub();
 
 export let openAndClosePlugin: Plugin = {
   name:"openAndClose",
@@ -46,16 +76,22 @@ export let toolBoxPlugin: any = {
       let child = children[i]; // 获取子元素
       topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
       let nodeColor = generateColorFunc.next().value;
-      child.mind.x = worldReact.x + pen.mind.maxWidth + toolBoxPlugin.levelGap;
+      child.mind.x = worldReact.x + worldReact.width + toolBoxPlugin.levelGap;
       child.mind.y = worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
       child.mind.color = nodeColor;
-      meta2d.setValue({
-        id: child.id,
-        x: child.mind.x,
-        y: child.mind.y,
-        color: nodeColor
-      },{render:false});
+      if(child.mind.visible){
+        meta2d.setValue({
+          id: child.id,
+          x: child.mind.x,
+          y: child.mind.y,
+          color: nodeColor
+        },{render:false});
+        meta2d.setVisible(child,true,false);
+      }else{
+        meta2d.setVisible(child,false,false);
+      }
       if(recursion) toolBoxPlugin.calChildrenPosAndColor(child,true);
+
 
       // meta2d.setValue({
       //   id:child.id,
@@ -111,20 +147,24 @@ export let toolBoxPlugin: any = {
     toolBoxPlugin.deleteLines(pen);
     let parent = meta2d.findOne(pen.mind.preNodeId);
     parent && parent.mind.children.splice(parent.mind.children.indexOf(pen),1);
+    toolBoxPlugin.update(pen);
     await meta2d.delete(pen.mind.children);
   },
   install:(manager, pen, args)=>{
     let toolbox = null;
-    if(!meta2d.toolbox){
+    if(!globalThis.toolbox){
       toolbox = new ToolBox(meta2d.canvas.externalElements.parentElement,{
       });
-      meta2d.toolbox = toolbox;
+      globalThis.toolbox = toolbox;
     }
     // 跟随移动
     toolBoxPlugin.combineLifeCycle(pen);
     meta2d.on('inactive',(targetPen)=>{
-      meta2d.toolbox.hide();
+      globalThis.toolbox.hide();
     });
+  },
+  uninstall(){
+    globalThis.toolbox = null;
   },
   funcList: {
     'root':[
@@ -132,24 +172,6 @@ export let toolBoxPlugin: any = {
         name: '新增子级节点',
         event: 'click',
         func: async (pen)=>{
-          // let newPen = await meta2d.addPen({
-          //   name:'mindNode2',
-          //   mind:{
-          //     isRoot: false,
-          //     preNodeId:pen.id,
-          //     children: []
-          //   },
-          //   text:pen.text+1,
-          //   x:pen.x ,
-          //   y:pen.y ,
-          //   width: pen.width,
-          //   height: pen.height,
-          //   borderRadius: pen.borderRadius,
-          // });
-          // pen.mind.children.push(newPen);
-          // toolBoxPlugin.calChildrenPosition(pen,true);
-          // toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
-          // meta2d.render();
           toolBoxPlugin.addNode(pen,0);
         },
         icon:'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMzRweCIgaGVpZ2h0PSIzNHB4IiB2aWV3Qm94PSIwIDAgMzQgMzQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+5LiL57qn6IqC54K5PC90aXRsZT4KICAgIDxkZWZzPgogICAgICAgIDxyZWN0IGlkPSJwYXRoLTEiIHg9IjE0IiB5PSIxOCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjciIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgPG1hc2sgaWQ9Im1hc2stMiIgbWFza0NvbnRlbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIG1hc2tVbml0cz0ib2JqZWN0Qm91bmRpbmdCb3giIHg9IjAiIHk9IjAiIHdpZHRoPSIxNiIgaGVpZ2h0PSI3IiBmaWxsPSJ3aGl0ZSI+CiAgICAgICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI3BhdGgtMSI+PC91c2U+CiAgICAgICAgPC9tYXNrPgogICAgPC9kZWZzPgogICAgPGcgaWQ9Iumhtemdoi0xIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0i5Zu65a6aIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzM2LjAwMDAwMCwgLTI3LjAwMDAwMCkiPgogICAgICAgICAgICA8ZyBpZD0i57yW57uELTLlpIfku70iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4Mi4wMDAwMDAsIDI0LjAwMDAwMCkiPgogICAgICAgICAgICAgICAgPGcgaWQ9IuS4i+e6p+iKgueCuSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0LjAwMDAwMCwgMy4wMDAwMDApIj4KICAgICAgICAgICAgICAgICAgICA8cmVjdCBpZD0i6YCP5piO5bqV5Zu+IiBmaWxsLW9wYWNpdHk9IjAiIGZpbGw9IiNGRkZGRkYiIHg9IjAiIHk9IjAiIHdpZHRoPSIzNCIgaGVpZ2h0PSIzNCI+PC9yZWN0PgogICAgICAgICAgICAgICAgICAgIDxyZWN0IGlkPSLnn6nlvaLlpIfku70tNiIgc3Ryb2tlPSIjODE4MTg3IiB4PSI0LjUiIHk9IjguNSIgd2lkdGg9IjE1IiBoZWlnaHQ9IjYiIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMjIiIHgyPSIxNCIgeTI9IjIyIiBpZD0i55u057q/LTciIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIyIiBpZD0i55u057q/LTYiIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPHVzZSBpZD0i55+p5b2i5aSH5Lu9LTUiIHN0cm9rZT0iIzlDOUNBNSIgbWFzaz0idXJsKCNtYXNrLTIpIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjIiIHhsaW5rOmhyZWY9IiNwYXRoLTEiPjwvdXNlPgogICAgICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4='
@@ -241,19 +263,13 @@ export let toolBoxPlugin: any = {
   },
 
   combineLifeCycle(target){
-    let toolbox = meta2d.toolbox;
-    // let translateToolBox = debounce(toolbox.translatePosition.bind(toolbox),200 );
-    // let bindPenDebounce = debounce(toolbox.bindPen.bind(toolbox),200);
+    let toolbox = globalThis.toolbox;
     setLifeCycleFunc(target,'onMove',(targetPen)=>{
       toolbox.hide();
-      // translateToolBox(targetPen);
-      // bindPenDebounce(targetPen);
     });
-
     setLifeCycleFunc(target,'onDestroy',(targetPen)=>{
       toolbox.hide();
       toolBoxPlugin.deleteNode(targetPen);
-      toolBoxPlugin.update(meta2d.findOne(targetPen.mind.preNodeId),true);
     });
     setLifeCycleFunc(target,'onMouseUp',(targetPen)=>{
       toolbox.bindPen(targetPen);
@@ -296,9 +312,10 @@ export let toolBoxPlugin: any = {
     let rootNode = meta2d.findOne(pen.mindManager.rootId);
     toolBoxPlugin.update(rootNode,true);
     // toolBoxPlugin.calChildrenPosition(pen);
-    meta2d.toolbox.bindPen(newPen);
-    meta2d.toolbox.setFuncList(toolBoxPlugin.funcList['leaf']);
-    meta2d.toolbox.translatePosition(newPen);
+    globalThis.toolbox.bindPen(newPen);
+    globalThis.toolbox.setFuncList(toolBoxPlugin.funcList['leaf']);
+    globalThis.toolbox.translatePosition(newPen);
+    pluginsMessageChannels.publish('addNode',newPen);
   },
   // TODO 似乎这里有bug？ getPenRect值不是最新的
   update(pen,recursion = true){
@@ -354,3 +371,89 @@ function rewritePenLifeCycle() {
 
 // 获取函数
 let setLifeCycleFunc = rewritePenLifeCycle();
+
+
+export let CollapseChildPlugin: any = {
+  name:'hideChildren',
+  status: false,
+  install(manager, pen, args){
+    if(!globalThis.collapseButton){
+      globalThis.collapseButton = new CollapseButton(meta2d.canvas.externalElements.parentElement,{
+      });
+    }
+
+    pluginsMessageChannels.subscribe('addNode',(data)=>{
+      CollapseChildPlugin.combineLifeCycle(data);
+      CollapseChildPlugin.init(data);
+    });
+    // 跟随移动
+    globalThis.collapseButton.bindPen(pen);
+    CollapseChildPlugin.init(pen);
+    CollapseChildPlugin.combineLifeCycle(pen);
+    meta2d.on('inactive',(targetPen)=>{
+      if(targetPen.mind?.childrenVisible){
+        globalThis.collapseButton.hide();
+      }
+    });
+  },
+  uninstall(){
+    globalThis.collapseButton = null;
+  },
+  drawFunc(pen){
+   let ctx = new Path2D();
+    const { x, y, width, height, ex, ey } = pen.calculative.worldRect;
+    let center = {
+      x: (x + ex) / 2,
+      y: (y + ey) / 2
+    };
+  },
+  combineLifeCycle(target){
+    setLifeCycleFunc(target,'onMouseEnter',(targetPen)=>{
+      if(targetPen.mind.children.length > 0){
+        globalThis.collapseButton.translatePosition(targetPen);
+        globalThis.collapseButton.bindPen(targetPen);
+        globalThis.collapseButton.show();
+      }
+    });
+
+    setLifeCycleFunc(target,'onMouseLeave',(targetPen)=>{
+      if(targetPen.mind.childrenVisible){
+        globalThis.collapseButton.hide();
+      }
+    });
+    setLifeCycleFunc(target,'onMove',(targetPen)=>{
+      globalThis.collapseButton.hide();
+    });
+  },
+  init(pen){
+    pen.mind.childrenVisible = true;
+    pen.mind.allChildrenCount = 0;
+  },
+  collapse(pen){
+    pen.mind.childrenVisible = false;
+    let children = pen.mind.children;
+    let allCount = children.length;
+    if(!children || children.length === 0)return 0;
+    for(let i = 0 ; i< children.length;i++){
+      let child = children[i];
+      child.mind.visible = false;
+      let line = child.connectedLines[0];
+      meta2d.setVisible(meta2d.findOne(line.lineId),false,false);
+      allCount += CollapseChildPlugin.collapse(child);
+    }
+    pen.mind.allChildrenCount = allCount;
+    return allCount;
+  },
+  extend(pen){
+    pen.mind.childrenVisible = true;
+    let children = pen.mind.children;
+    if(!children || children.length === 0)return;
+    for(let i = 0 ; i< children.length;i++){
+      let child = children[i];
+      child.mind.visible = true;
+      let line = child.connectedLines[0];
+      meta2d.setVisible(meta2d.findOne(line.lineId),true,false);
+      CollapseChildPlugin.extend(child);
+    }
+  }
+};

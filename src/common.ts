@@ -55,6 +55,7 @@ export function uninstallPlugin(mindManager,plugin,...args) {
   try {
     mindManager.plugins?.splice(mindManager.plugins?.findIndex(i=>i.name === plugin.name ),1);
     plugin.status = false;
+    plugin.uninstall();
     return true;
   }catch (e) {
     return false;
