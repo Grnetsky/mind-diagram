@@ -376,59 +376,66 @@ let setLifeCycleFunc = rewritePenLifeCycle();
 export let CollapseChildPlugin: any = {
   name:'hideChildren',
   status: false,
+
+  // 安装插件
   install(manager, pen, args){
-    if(!globalThis.collapseButton){
-      globalThis.collapseButton = new CollapseButton(meta2d.canvas.externalElements.parentElement,{
+
+    if(!pen.mind.singleton?.collapseButton  ){
+      pen.mind.singleton = {};
+      pen.mind.singleton.collapseButton = new CollapseButton(meta2d.canvas.externalElements.parentElement,{
       });
     }
-
     pluginsMessageChannels.subscribe('addNode',(data)=>{
-      CollapseChildPlugin.combineLifeCycle(data);
-      CollapseChildPlugin.init(data);
-    });
-    // 跟随移动
-    globalThis.collapseButton.bindPen(pen);
-    CollapseChildPlugin.init(pen);
-    CollapseChildPlugin.combineLifeCycle(pen);
-    meta2d.on('inactive',(targetPen)=>{
-      if(targetPen.mind?.childrenVisible){
-        globalThis.collapseButton.hide();
+      if(!data.mind.singleton?.collapseButton){
+        data.mind.singleton = {};
+        data.mind.singleton.collapseButton = new CollapseButton(meta2d.canvas.externalElements.parentElement,{
+        });
+        CollapseChildPlugin.init(data);
       }
     });
+    // 跟随移动
+    CollapseChildPlugin.init(pen);
   },
+
+  // 插件卸载执行函数
   uninstall(){
-    globalThis.collapseButton = null;
   },
-  drawFunc(pen){
-   let ctx = new Path2D();
-    const { x, y, width, height, ex, ey } = pen.calculative.worldRect;
-    let center = {
-      x: (x + ex) / 2,
-      y: (y + ey) / 2
-    };
+  init(pen){
+    pen.mind.childrenVisible = true;
+    pen.mind.allChildrenCount = 0;
+    pen.mind.singleton.collapseButton.bindPen(pen.id);
+    pen.mind.singleton.collapseButton.translatePosition(pen);
+    CollapseChildPlugin.combineLifeCycle(pen);
+    pen.mind.singleton.collapseButton.hide();
   },
+
+  // 监听生命周期
   combineLifeCycle(target){
     setLifeCycleFunc(target,'onMouseEnter',(targetPen)=>{
       if(targetPen.mind.children.length > 0){
-        globalThis.collapseButton.translatePosition(targetPen);
-        globalThis.collapseButton.bindPen(targetPen);
-        globalThis.collapseButton.show();
+        targetPen.mind.singleton.collapseButton.translatePosition(targetPen);
+        targetPen.mind.singleton.collapseButton.show();
       }
     });
 
     setLifeCycleFunc(target,'onMouseLeave',(targetPen)=>{
       if(targetPen.mind.childrenVisible){
-        globalThis.collapseButton.hide();
+        console.log(111111111111);
+        targetPen.mind.singleton.collapseButton.hide();
       }
     });
-    setLifeCycleFunc(target,'onMove',(targetPen)=>{
-      globalThis.collapseButton.hide();
-    });
+
+    let moveDebounce = debounce((targetPen)=>{
+      console.log(targetPen,'ttttttttttttttttttttttt');
+      targetPen.mind.singleton?.collapseButton?.translatePosition(targetPen);
+      if(targetPen.mind.childrenVisible){
+        targetPen.mind.singleton?.collapseButton?.hide();
+      }
+        // targetPen.mind.singleton?.collapseButton?.show();
+    },200);
+    setLifeCycleFunc(target,'onMove',moveDebounce);
   },
-  init(pen){
-    pen.mind.childrenVisible = true;
-    pen.mind.allChildrenCount = 0;
-  },
+  // 折叠函数
   collapse(pen){
     pen.mind.childrenVisible = false;
     let children = pen.mind.children;
@@ -444,6 +451,7 @@ export let CollapseChildPlugin: any = {
     pen.mind.allChildrenCount = allCount;
     return allCount;
   },
+  // 展开函数
   extend(pen){
     pen.mind.childrenVisible = true;
     let children = pen.mind.children;
@@ -457,3 +465,16 @@ export let CollapseChildPlugin: any = {
     }
   }
 };
+
+
+function debounce(func, wait) {
+  let timeout;
+  return function() {
+    const context = this;
+    const args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(function() {
+      func.apply(context, args);
+    }, wait);
+  };
+}

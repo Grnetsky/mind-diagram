@@ -117,7 +117,7 @@ export class CollapseButton {
   box: HTMLElement;
   x: number;
   y:number;
-  pen:leChartPen;
+  penId: string;
   icon = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" t="1695196647299" class="icon" viewBox="0 0 1024 1024" version="1.1" p-id="15005" width="200" height="200"><path d="M353.96380445 470.37781333c-28.69589333 26.00504889-28.30791111 68.80711111 0.94776888 94.40711112l329.83722667 288.60643555c9.45834667 8.27619555 23.83416889 7.31704889 32.11036445-2.14129778s7.31704889-23.83416889-2.14129778-32.11036444l-329.83722667-288.60643556c-8.78023111-7.68227555-8.87921778-18.71075555-0.35612445-26.43399111l330.48803556-299.50520889c9.31157333-8.43889778 10.02040889-22.82951111 1.58037334-32.14222222-8.43889778-9.31157333-22.82951111-10.02040889-32.14222223-1.58037333l-330.48803555 299.50520888z" p-id="15006" fill="#ffffff"/></svg>';
   count = 0;
   constructor(parentHtml,style = {}) {
@@ -138,19 +138,21 @@ export class CollapseButton {
     this.box.style.color = "#fff";
     this.box.style.fontSize = '400';
     this.setStyle(this.box,style);
-    this.box.onclick = this.onClick;
     parentHtml.appendChild(this.box);
   }
   onClick(){
-    if(globalThis.collapseButton.pen.mind.childrenVisible){
-      let count = CollapseChildPlugin.collapse(globalThis.collapseButton.pen);
-      globalThis.collapseButton.setNumber(count);
-      toolBoxPlugin.update(meta2d.findOne(globalThis.collapseButton.pen.mindManager.rootId));
+    if(this.mind.childrenVisible){
+      let count = CollapseChildPlugin.collapse(this);
+      this.mind.singleton.collapseButton.setNumber(count);
+      toolBoxPlugin.update(meta2d.findOne(this.mindManager.rootId));
     }else{
-      CollapseChildPlugin.extend(globalThis.collapseButton.pen);
-      toolBoxPlugin.update(meta2d.findOne(globalThis.collapseButton.pen.mindManager.rootId));
+      CollapseChildPlugin.extend(this);
+      this.mind.singleton.collapseButton.setIcon();
+      toolBoxPlugin.update(meta2d.findOne(this.mindManager.rootId));
     }
-
+  }
+  setIcon(){
+    this.box.innerHTML = this.icon;
   }
   // 折叠子项 level为折叠层数 默认则折叠所有子项
   setStyle(box, style){
@@ -167,14 +169,15 @@ export class CollapseButton {
   show(){
     this.box.style.display = 'flex';
   }
-  bindPen(pen){
-    this.translatePosition(pen);
+  bindPen(penId){
+    let pen = meta2d.findOne(penId);
+    this.penId = penId;
+    this.box.onclick = this.onClick.bind(pen);
     if(pen.mind.childrenVisible){
       this.box.innerHTML = this.icon;
     }else{
       this.box.innerHTML = pen.mind.allChildrenCount;
     }
-    this.pen = pen;
   }
   translatePosition(pen,position = 'right'){
     this.hide();
@@ -199,7 +202,7 @@ export class CollapseButton {
     this.box.style.top =  pos.y;
     this.box.style.transform = "translateY(-50%)";
     this.box.style.userSelect = 'none';
-    this.show();
+    // this.show();
   }
 
 }

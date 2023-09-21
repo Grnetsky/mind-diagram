@@ -24,6 +24,7 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
   if(!pen.mindManager){
     // 新创建的node；
     pen.mindManager = deepClone(MindManger);
+    console.log('新建');
     pen.mindManager.plugins = [];
     pen.mindManager.penId = pen.id;
     if(parentId){
@@ -35,7 +36,7 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
     pen.mindManager.rootId = pen.id;
     installPlugin(pen.mindManager,openAndClosePlugin);
     installPlugin(pen.mindManager,toolBoxPlugin);
-    installPlugin(pen.mindManager,CollapseChildPlugin);
+    // installPlugin(pen.mindManager,CollapseChildPlugin);
   }else {
     // (pen.mindManager.data.children.length === 0) && (pen.mind.isRoot = true);
   }
@@ -89,3 +90,4 @@ export function nodePen(pen: Pen, ctx?: CanvasRenderingContext2D): Path2D {
     return path;
   }
 }
+
