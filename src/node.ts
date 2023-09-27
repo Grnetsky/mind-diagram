@@ -35,7 +35,7 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
     pen.mindManager.rootId = pen.id;
     installPlugin(pen.mindManager,openAndClosePlugin);
     installPlugin(pen.mindManager,toolBoxPlugin);
-    // installPlugin(pen.mindManager,CollapseChildPlugin);
+    installPlugin(pen.mindManager,CollapseChildPlugin);
   }else {
     // (pen.mindManager.data.children.length === 0) && (pen.mind.isRoot = true);
   }

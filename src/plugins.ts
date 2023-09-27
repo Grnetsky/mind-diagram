@@ -75,7 +75,7 @@ export let toolBoxPlugin: any = {
       // 循环设置每个
       let child = children[i]; // 获取子元素
       topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
-      let nodeColor = generateColorFunc.next().value;
+      let nodeColor = pen.mind.color || generateColorFunc.next().value;
       child.mind.x = worldReact.x + worldReact.width + toolBoxPlugin.levelGap;
       child.mind.y = worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
       child.mind.color = nodeColor;
@@ -121,7 +121,7 @@ export let toolBoxPlugin: any = {
       let line = child.connectedLines?.[0];
       if(line){
         line.mind? '' : line.mind = {};
-        line.mind.color = colors.next().value;
+        line.mind.color = pen.mind.color || colors.next().value;
       }
       meta2d.setValue({
         id:line.lineId,
@@ -143,11 +143,20 @@ export let toolBoxPlugin: any = {
     });
     meta2d.delete(lines);
   },
+
+  // 删除node
   async deleteNode(pen){
+    // 删除与之相关的线
     toolBoxPlugin.deleteLines(pen);
+
+    // 查找到对应的父级，删除其在父级中的子级列表数据
     let parent = meta2d.findOne(pen.mind.preNodeId);
     parent && parent.mind.children.splice(parent.mind.children.indexOf(pen),1);
+
+    // 刷新界面
     toolBoxPlugin.update(pen);
+
+    // 删除meta2d数据
     await meta2d.delete(pen.mind.children);
   },
   install:(manager, pen, args)=>{
@@ -420,13 +429,11 @@ export let CollapseChildPlugin: any = {
 
     setLifeCycleFunc(target,'onMouseLeave',(targetPen)=>{
       if(targetPen.mind.childrenVisible){
-        console.log(111111111111);
         targetPen.mind.singleton.collapseButton.hide();
       }
     });
 
     let moveDebounce = debounce((targetPen)=>{
-      console.log(targetPen,'ttttttttttttttttttttttt');
       targetPen.mind.singleton?.collapseButton?.translatePosition(targetPen);
       if(targetPen.mind.childrenVisible){
         targetPen.mind.singleton?.collapseButton?.hide();
@@ -443,9 +450,13 @@ export let CollapseChildPlugin: any = {
     if(!children || children.length === 0)return 0;
     for(let i = 0 ; i< children.length;i++){
       let child = children[i];
+      // 设置子节点的可见性为false
       child.mind.visible = false;
+
+      // 设置相关line的可见性为false
       let line = child.connectedLines[0];
       meta2d.setVisible(meta2d.findOne(line.lineId),false,false);
+      // 计算子节点的个数
       allCount += CollapseChildPlugin.collapse(child);
     }
     pen.mind.allChildrenCount = allCount;
