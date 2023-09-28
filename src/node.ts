@@ -14,6 +14,7 @@ import {deepClone, Pen} from "@meta2d/core";
 export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentId = '') {
   pen.mind = pen.mind ?? {};
   pen.mind.visible = true;
+  pen.mind.direction = 'right';
   let prePen = meta2d.findOne(pen.mind.preNodeId); //TODO  获取父节点 可能会有多个？暂时不处理'
   pen.mind.type = 'mind-node-1'; //标记为脑图1号节点
   if(prePen){
@@ -32,6 +33,7 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
       parent.mindManager.data.children.push(pen.id);
     }
     pen.mind.isRoot = true;
+    pen.mind.lineStyle = 'curve';
     pen.mindManager.rootId = pen.id;
     installPlugin(pen.mindManager,openAndClosePlugin);
     installPlugin(pen.mindManager,toolBoxPlugin);

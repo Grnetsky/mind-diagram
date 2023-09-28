@@ -53,7 +53,7 @@ export let toolBoxPlugin: any = {
   childrenGap: 20,
   levelGap: 200,
   // 计算子节点的颜色和位置
-  calChildrenPosAndColor(pen,recursion = true){
+  calChildrenPosAndColor(pen,recursion = true, position='right'){
     if(!pen)return;
     let children = pen.mind?.children;
     if(!children)return;
@@ -68,16 +68,35 @@ export let toolBoxPlugin: any = {
       penRects.push(childWorldRect);
     }
     let topHeight = 0;
+    let topWidth = 0;
     // 设置值
     let generateColorFunc = generateColor();
-    toolBoxPlugin.calcChildWandH(pen);
+    toolBoxPlugin.calcChildWandH(pen,position);
     for(let i = 0;i<children.length;i++){
       // 循环设置每个
       let child = children[i]; // 获取子元素
       topHeight += ((children[i-1]?.mind?.maxHeight) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
+      topWidth += ((children[i-1]?.mind?.maxWidth) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
+
       let nodeColor = pen.mind.color || generateColorFunc.next().value;
-      child.mind.x = worldReact.x + worldReact.width + toolBoxPlugin.levelGap;
-      child.mind.y = worldReact.y  - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2*worldReact.height+((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
+
+      switch (position){
+        case 'right':
+          child.mind.x = worldReact.x + worldReact.width + toolBoxPlugin.levelGap;
+          child.mind.y = worldReact.y - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2 * worldReact.height + ((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
+          break;
+        case 'left':
+          child.mind.x = worldReact.x - child.width- toolBoxPlugin.levelGap;
+          child.mind.y = worldReact.y - 1 / 2 * pen.mind.maxHeight + topHeight + 1/2 * worldReact.height + ((child.mind?.maxHeight / 2 - 1 / 2 * penRects[i].height) || 0);
+          break;
+        case 'bottom':
+          child.mind.x = worldReact.x - 1 / 2 * pen.mind.maxWidth + topWidth + 1/2 * worldReact.width + ((child.mind?.maxWidth / 2 - 1 / 2 * penRects[i].width) || 0);
+          child.mind.y = worldReact.y + child.height + toolBoxPlugin.levelGap;
+          break;
+        case 'top':
+          child.mind.x = worldReact.x - 1 / 2 * pen.mind.maxWidth + topWidth + 1/2 * worldReact.width + ((child.mind?.maxWidth / 2 - 1 / 2 * penRects[i].width) || 0);
+          child.mind.y = worldReact.y - child.height - toolBoxPlugin.levelGap;
+      }
       child.mind.color = nodeColor;
       if(child.mind.visible){
         meta2d.setValue({
@@ -108,11 +127,27 @@ export let toolBoxPlugin: any = {
     //   meta2d.setValue({id: line.id, color: lastChild.calculative.color, lineWidth: 2}, {render: false});
     // }
   },
-  connectLine(pen,newPen,style = 'curve'){
-    let line = meta2d.connectLine(pen, newPen, pen.anchors[1], newPen.anchors[3], false);
-    meta2d.updateLineType(line, style);
+  connectLine(pen,newPen,option = {position: 'top',style : 'polyline'}){
+    let line = null;
+    switch (option.position){
+      case 'right':
+        line = meta2d.connectLine(pen, newPen, pen.anchors[1], newPen.anchors[3], false);
+        break;
+      case 'left':
+        line = meta2d.connectLine(newPen, pen, newPen.anchors[1],pen.anchors[3] , false);
+        break;
+      case 'bottom':
+        line = meta2d.connectLine(pen, newPen, pen.anchors[2],newPen.anchors[0] , false);
+        break;
+      case 'top':
+        line = meta2d.connectLine(newPen, pen, newPen.anchors[2],pen.anchors[0] , false);
+        break;
+    }
+    meta2d.updateLineType(line, option.style);
   },
-  reSetLines(pen,recursion = true){
+
+  // 重新设置线颜色
+  reSetLinesColor(pen,recursion = true){
     let colors = generateColor();
     let children = pen.mind.children;
     if(!children || children.length === 0 )return;
@@ -120,7 +155,7 @@ export let toolBoxPlugin: any = {
       const child = children[i];
       let line = child.connectedLines?.[0];
       if(line){
-        line.mind? '' : line.mind = {};
+        line.mind? '' : (line.mind = {});
         line.mind.color = pen.mind.color || colors.next().value;
       }
       meta2d.setValue({
@@ -128,7 +163,7 @@ export let toolBoxPlugin: any = {
         color: line.mind.color
       },{render:false});
       if(recursion){
-          toolBoxPlugin.reSetLines(child,true);
+          toolBoxPlugin.reSetLinesColor(child,true);
       }
     }
   },
@@ -242,7 +277,7 @@ export let toolBoxPlugin: any = {
       }
     ]
   },
-  calcChildWandH(pen){
+  calcChildWandH(pen,position = 'right'){
     let children = pen.mind.children || [];
     let worldRect = meta2d.getPenRect(pen);
     if(children.length ===0 || !pen.mind.childrenVisible){
@@ -255,20 +290,40 @@ export let toolBoxPlugin: any = {
     }
     let maxHeight = 0;
     let maxWidth = 0;
-    for(let i = 0;i<children.length;i++){
-      let child = children[i];
-      let maxObj = toolBoxPlugin.calcChildWandH(child);
-      maxHeight += maxObj.maxHeight;
-      maxWidth = maxWidth > maxObj.maxWidth? maxWidth : maxObj.maxWidth;
+    let maxH = 0;
+    let maxW = 0;
+    if(position === 'right' || position === 'left'){
+      for(let i = 0;i<children.length;i++){
+        let child = children[i];
+        let maxObj = toolBoxPlugin.calcChildWandH(child,position);
+        maxHeight += maxObj.maxHeight;
+        maxWidth = maxWidth > maxObj.maxWidth? maxWidth : maxObj.maxWidth;
+      }
+      maxHeight += toolBoxPlugin.childrenGap * (children.length - 1);
+      maxH = maxHeight > worldRect.height?maxHeight : worldRect.height;
+      pen.mind.maxHeight = maxH;
+      pen.mind.maxWidth = maxWidth;
+      return {
+        maxHeight:maxH,
+        maxWidth
+      };
+    }else {
+      for(let i = 0;i<children.length;i++){
+        let child = children[i];
+        let maxObj = toolBoxPlugin.calcChildWandH(child,position);
+        maxWidth += maxObj.maxWidth;
+        maxHeight = maxHeight > maxObj.maxHeight? maxHeight : maxObj.maxHeight;
+      }
+      maxWidth += toolBoxPlugin.childrenGap * (children.length - 1);
+      maxW = maxWidth > worldRect.width?maxWidth : worldRect.width;
+      pen.mind.maxHeight = maxHeight;
+      pen.mind.maxWidth = maxW;
+      return {
+        maxHeight,
+        maxWidth: maxW
+      };
     }
-    maxHeight += toolBoxPlugin.childrenGap * (children.length - 1);
-    let maxH = maxHeight > worldRect.height?maxHeight : worldRect.height;
-    pen.mind.maxHeight = maxH;
-    pen.mind.maxWidth = maxWidth;
-    return {
-      maxHeight:maxH,
-      maxWidth
-    };
+
   },
 
   combineLifeCycle(target){
@@ -289,8 +344,13 @@ export let toolBoxPlugin: any = {
       toolbox.hide();
     });
   },
+
+  setDirection(pen,direction){
+    return pen.mind?.direction? pen.mind.direction = direction:((pen.mind = {}) && (pen.mind.direction = direction));
+  },
+
   // 增加节点  同级设level为true
-  async addNode(pen,position = 0, type = "mindNode2",){
+  async addNode(pen,position = 0, type = "mindNode2"){
     let newPen = await meta2d.addPen({
       name:type,
       mind:{
@@ -317,8 +377,10 @@ export let toolBoxPlugin: any = {
       pen.mind.children.push(newPen);
     }
     toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
-    toolBoxPlugin.connectLine(pen,newPen);
     let rootNode = meta2d.findOne(pen.mindManager.rootId);
+    toolBoxPlugin.connectLine(pen,newPen,{position:pen.mind.direction,style: rootNode.mind.lineStyle});
+
+    // 从根节点更新
     toolBoxPlugin.update(rootNode,true);
     // toolBoxPlugin.calChildrenPosition(pen);
     globalThis.toolbox.bindPen(newPen);
@@ -326,10 +388,9 @@ export let toolBoxPlugin: any = {
     globalThis.toolbox.translatePosition(newPen);
     pluginsMessageChannels.publish('addNode',newPen);
   },
-  // TODO 似乎这里有bug？ getPenRect值不是最新的
   update(pen,recursion = true){
-    toolBoxPlugin.calChildrenPosAndColor(pen,recursion);
-    toolBoxPlugin.reSetLines(pen,recursion);
+    toolBoxPlugin.calChildrenPosAndColor(pen,recursion,pen.mind.direction);
+    toolBoxPlugin.reSetLinesColor(pen,recursion);
     toolBoxPlugin.render();
   },
   render(){
