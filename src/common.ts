@@ -27,8 +27,8 @@ export let MindManger = {
 
 
 export function* generateColor() {
-  const colorList = ['#ee353e','#ff7a10','#f6f217','#65ff0e',
-    '#1dfaf3','#019efc','#aa15ff'
+  const colorList = ['#FF2318','#9C64A2','#B4C926','#0191B3',
+    '#6F6EB9','#9C64A2','#FF291B','#F4AE3C'
   ];let index = 0;
   while(true) {
     yield colorList[index];

@@ -245,7 +245,7 @@ export let toolBoxPlugin: any = {
   calcChildWandH(pen){
     let children = pen.mind.children || [];
     let worldRect = meta2d.getPenRect(pen);
-    if(children.length ===0){
+    if(children.length ===0 || !pen.mind.childrenVisible){
       pen.mind.maxHeight = worldRect.height;
       pen.mind.maxWidth = worldRect.width;
       return {
