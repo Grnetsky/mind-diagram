@@ -1,8 +1,9 @@
-import {getRect, Pen, setGlobalAlpha} from "@meta2d/core";
+import {getRect, Pen, setGlobalAlpha, disconnectLine, connectLine as connectLineMeta, connectLine} from "@meta2d/core";
 import {ToolBox, CollapseButton} from "@meta2d/mind-diagram/src/dom";
 import {
   generateColor,
 } from "@meta2d/mind-diagram";
+import {Logger} from "typedoc";
 
 export interface Plugin {
   name:string;
@@ -79,7 +80,6 @@ export let toolBoxPlugin: any = {
       topWidth += ((children[i-1]?.mind?.maxWidth) || 0) +(children[i-1]?(toolBoxPlugin.childrenGap):0) ;
 
       let nodeColor = pen.mind.color || generateColorFunc.next().value;
-
       switch (position){
         case 'right':
           child.mind.x = worldReact.x + worldReact.width + toolBoxPlugin.levelGap;
@@ -109,7 +109,7 @@ export let toolBoxPlugin: any = {
       }else{
         meta2d.setVisible(child,false,false);
       }
-      if(recursion) toolBoxPlugin.calChildrenPosAndColor(child,true);
+      if(recursion) toolBoxPlugin.calChildrenPosAndColor(child,true,child.mind.direction);
 
 
       // meta2d.setValue({
@@ -157,16 +157,86 @@ export let toolBoxPlugin: any = {
       if(line){
         line.mind? '' : (line.mind = {});
         line.mind.color = pen.mind.color || colors.next().value;
+        meta2d.setValue({
+          id:line.lineId,
+          color: line.mind.color
+        },{render:false});
       }
-      meta2d.setValue({
-        id:line.lineId,
-        color: line.mind.color
-      },{render:false});
       if(recursion){
           toolBoxPlugin.reSetLinesColor(child,true);
       }
     }
   },
+  // 重新递归设置连线的样式
+  resetLineStyle(pen,recursion = true){
+    let children = pen.mind.children;
+    if(!children || children.length === 0 )return;
+    for(let i = 0 ;i<children.length;i++){
+      const child = children[i];
+      let line = meta2d.findOne(child.connectedLines?.[0].lineId);
+      if(line){
+        meta2d.updateLineType(line,meta2d.findOne(pen.mindManager.rootId).mind.lineStyle);
+      }
+      if(recursion){
+        toolBoxPlugin.resetLineStyle(child,true);
+      }
+    }
+  },
+  // 重新设置连线的位置
+  resetLinePos(pen,recursion = true){
+    console.log('执行resetLien');
+    let children = pen.mind.children;
+    if(!children || children.length === 0 )return;
+    for(let i = 0 ;i<children.length;i++){
+      const child = children[i];
+      if(!child.connectedLines || child.connectedLines.length === 0)return;
+      let line = meta2d.findOne(child.connectedLines[0].lineId);
+
+      let prePen = meta2d.findOne(child.mind.preNodeId);
+      let prePenAnchor = null;
+      let lineAnchor1 = line.anchors[0];
+      let penAnchor = null;
+      let lineAnchor2 = line.anchors[line.anchors.length - 1];
+      switch (prePen.mind.direction) {
+        case 'right':
+          prePenAnchor = prePen.anchors[1];
+          penAnchor = pen.anchors[3];
+          break;
+        case 'left':
+          prePenAnchor = prePen.anchors[3];
+          penAnchor = pen.anchors[1];
+          break;
+        case 'bottom':
+          prePenAnchor = prePen.anchors[2];
+          penAnchor = pen.anchors[0];
+          break;
+        case 'top':
+          prePenAnchor = prePen.anchors[0];
+          penAnchor = pen.anchors[2];
+          break;
+      }
+      // debugger
+      // disconnectLine(pen,penAnchor,line,lineAnchor2);
+      // disconnectLine(prePen,prePenAnchor,line,lineAnchor1);
+      console.log('disconnectLine');
+      if(recursion){
+        toolBoxPlugin.resetLinePos(child,true);
+      }
+    }
+  },
+  // 递归修改子节点的direction属性
+  resetDirection(pen,direction,recursion = true){
+    let children = pen.mind.children;
+    if(!children || children.length === 0 )return;
+    for(let i = 0 ;i<children.length;i++){
+      const child = children[i];
+      child.mind.direction = direction;
+      if(recursion){
+        toolBoxPlugin.resetDirection(child,direction,true);
+      }
+    }
+  },
+  // 删除连线
   deleteLines(pen){
     if(!pen)return;
     let lines = [];
@@ -189,10 +259,10 @@ export let toolBoxPlugin: any = {
     parent && parent.mind.children.splice(parent.mind.children.indexOf(pen),1);
 
     // 刷新界面
-    toolBoxPlugin.update(pen);
 
     // 删除meta2d数据
     await meta2d.delete(pen.mind.children);
+    toolBoxPlugin.update(meta2d.findOne(pen.mindManager.rootId));
   },
   install:(manager, pen, args)=>{
     let toolbox = null;
@@ -210,6 +280,7 @@ export let toolBoxPlugin: any = {
   uninstall(){
     globalThis.toolbox = null;
   },
+
   funcList: {
     'root':[
       {
@@ -218,8 +289,18 @@ export let toolBoxPlugin: any = {
         func: async (pen)=>{
           toolBoxPlugin.addNode(pen,0);
         },
-        icon:'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMzRweCIgaGVpZ2h0PSIzNHB4IiB2aWV3Qm94PSIwIDAgMzQgMzQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+5LiL57qn6IqC54K5PC90aXRsZT4KICAgIDxkZWZzPgogICAgICAgIDxyZWN0IGlkPSJwYXRoLTEiIHg9IjE0IiB5PSIxOCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjciIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgPG1hc2sgaWQ9Im1hc2stMiIgbWFza0NvbnRlbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIG1hc2tVbml0cz0ib2JqZWN0Qm91bmRpbmdCb3giIHg9IjAiIHk9IjAiIHdpZHRoPSIxNiIgaGVpZ2h0PSI3IiBmaWxsPSJ3aGl0ZSI+CiAgICAgICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI3BhdGgtMSI+PC91c2U+CiAgICAgICAgPC9tYXNrPgogICAgPC9kZWZzPgogICAgPGcgaWQ9Iumhtemdoi0xIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0i5Zu65a6aIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzM2LjAwMDAwMCwgLTI3LjAwMDAwMCkiPgogICAgICAgICAgICA8ZyBpZD0i57yW57uELTLlpIfku70iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4Mi4wMDAwMDAsIDI0LjAwMDAwMCkiPgogICAgICAgICAgICAgICAgPGcgaWQ9IuS4i+e6p+iKgueCuSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0LjAwMDAwMCwgMy4wMDAwMDApIj4KICAgICAgICAgICAgICAgICAgICA8cmVjdCBpZD0i6YCP5piO5bqV5Zu+IiBmaWxsLW9wYWNpdHk9IjAiIGZpbGw9IiNGRkZGRkYiIHg9IjAiIHk9IjAiIHdpZHRoPSIzNCIgaGVpZ2h0PSIzNCI+PC9yZWN0PgogICAgICAgICAgICAgICAgICAgIDxyZWN0IGlkPSLnn6nlvaLlpIfku70tNiIgc3Ryb2tlPSIjODE4MTg3IiB4PSI0LjUiIHk9IjguNSIgd2lkdGg9IjE1IiBoZWlnaHQ9IjYiIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMjIiIHgyPSIxNCIgeTI9IjIyIiBpZD0i55u057q/LTciIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIyIiBpZD0i55u057q/LTYiIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPHVzZSBpZD0i55+p5b2i5aSH5Lu9LTUiIHN0cm9rZT0iIzlDOUNBNSIgbWFzaz0idXJsKCNtYXNrLTIpIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjIiIHhsaW5rOmhyZWY9IiNwYXRoLTEiPjwvdXNlPgogICAgICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4='
-
+        icon:'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMzRweCIgaGVpZ2h0PSIzNHB4IiB2aWV3Qm94PSIwIDAgMzQgMzQiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8dGl0bGU+5LiL57qn6IqC54K5PC90aXRsZT4KICAgIDxkZWZzPgogICAgICAgIDxyZWN0IGlkPSJwYXRoLTEiIHg9IjE0IiB5PSIxOCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjciIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgPG1hc2sgaWQ9Im1hc2stMiIgbWFza0NvbnRlbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIG1hc2tVbml0cz0ib2JqZWN0Qm91bmRpbmdCb3giIHg9IjAiIHk9IjAiIHdpZHRoPSIxNiIgaGVpZ2h0PSI3IiBmaWxsPSJ3aGl0ZSI+CiAgICAgICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI3BhdGgtMSI+PC91c2U+CiAgICAgICAgPC9tYXNrPgogICAgPC9kZWZzPgogICAgPGcgaWQ9Iumhtemdoi0xIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0i5Zu65a6aIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzM2LjAwMDAwMCwgLTI3LjAwMDAwMCkiPgogICAgICAgICAgICA8ZyBpZD0i57yW57uELTLlpIfku70iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4Mi4wMDAwMDAsIDI0LjAwMDAwMCkiPgogICAgICAgICAgICAgICAgPGcgaWQ9IuS4i+e6p+iKgueCuSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0LjAwMDAwMCwgMy4wMDAwMDApIj4KICAgICAgICAgICAgICAgICAgICA8cmVjdCBpZD0i6YCP5piO5bqV5Zu+IiBmaWxsLW9wYWNpdHk9IjAiIGZpbGw9IiNGRkZGRkYiIHg9IjAiIHk9IjAiIHdpZHRoPSIzNCIgaGVpZ2h0PSIzNCI+PC9yZWN0PgogICAgICAgICAgICAgICAgICAgIDxyZWN0IGlkPSLnn6nlvaLlpIfku70tNiIgc3Ryb2tlPSIjODE4MTg3IiB4PSI0LjUiIHk9IjguNSIgd2lkdGg9IjE1IiBoZWlnaHQ9IjYiIHJ4PSIxIj48L3JlY3Q+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMjIiIHgyPSIxNCIgeTI9IjIyIiBpZD0i55u057q/LTciIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIyIiBpZD0i55u057q/LTYiIHN0cm9rZT0iIzgxODE4NyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L2xpbmU+CiAgICAgICAgICAgICAgICAgICAgPHVzZSBpZD0i55+p5b2i5aSH5Lu9LTUiIHN0cm9rZT0iIzlDOUNBNSIgbWFzaz0idXJsKCNtYXNrLTIpIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjIiIHhsaW5rOmhyZWY9IiNwYXRoLTEiPjwvdXNlPgogICAgICAgICAgICAgICAgPC9nPgogICAgICAgICAgICA8L2c+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4=',
+        /**
+         * @description 通过此函数你可以自由地自定义工具栏的样式 采用影子dom 使得style相互隔离
+         * @param self 此配置项自身
+         * @param dom 插件提供的包含容器 即你创建的dom的外部div对象
+         * */
+        setDom(self,dom){
+          // draw your dom freeDom！！！
+          let html =  `<span>${self.name} 666</span>`;
+          let style = `<style></style>`;
+          return html + style;
+        }
       },
       {
         name:'重新布局',
@@ -229,6 +310,13 @@ export let toolBoxPlugin: any = {
           if(children.length >0){
             toolBoxPlugin.update(pen,true);
           }
+        },
+        setDom(self,dom){
+          // draw your dom freeDom！！！
+          let result =  `<span>${self.name} 999</span>
+
+`;
+          return result;
         }
       },
       {
@@ -243,6 +331,79 @@ export let toolBoxPlugin: any = {
       },
       {
         name:'线条颜色',
+      },{
+        name:'连线方式',
+        children:[
+          {
+            name:'脑图曲线',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.lineStyle = 'curve';
+              toolBoxPlugin.resetLineStyle(root);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'折线',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.lineStyle = 'polyline';
+              toolBoxPlugin.resetLineStyle(root);
+              toolBoxPlugin.update(root);
+            }
+          }
+        ]
+      },
+      {
+        name:'布局方式',
+        children:[
+          {
+            name:'向右布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'right';
+              toolBoxPlugin.resetDirection(root,'right',true);
+              toolBoxPlugin.resetLinePos(root,true);
+              toolBoxPlugin.update(root);
+            },
+
+          },
+          {
+            name:'向左布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'left';
+
+              toolBoxPlugin.resetDirection(root,'left',true);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'向上布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'top';
+              toolBoxPlugin.resetDirection(root,'top',true);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'向下布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'bottom';
+
+              toolBoxPlugin.resetDirection(root,'bottom',true);
+              toolBoxPlugin.update(root);
+            }
+          }
+        ]
       }
     ],
     'leaf':[
@@ -274,6 +435,106 @@ export let toolBoxPlugin: any = {
             toolBoxPlugin.update(pen,false);
           }
         }
+      },{
+        name:'连线方式',
+        children:[
+          {
+            name:'脑图曲线',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.lineStyle = 'curve';
+              toolBoxPlugin.resetLineStyle(root);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'折线',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.lineStyle = 'polyline';
+              toolBoxPlugin.resetLineStyle(root);
+              toolBoxPlugin.update(root);
+            }
+          }
+        ]
+      },
+      {
+        name:'布局方式',
+        children:[
+          {
+            name:'',
+            event:'click',
+            icon:'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="76px" height="50px" viewBox="0 0 76 50" version="1.1">\n' +
+              '    <title>布局</title>\n' +
+              '    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">\n' +
+              '        <g id="未固定" transform="translate(-541.000000, -480.000000)">\n' +
+              '            <g id="编组-6备份" transform="translate(525.000000, 423.000000)">\n' +
+              '                <g id="布局" transform="translate(16.000000, 57.000000)">\n' +
+              '                    <rect id="透明底图" stroke="#4D4DFF" fill="#F8F8FC" x="0.5" y="0.5" width="75" height="49" rx="2"/>\n' +
+              '                    <g id="编组-3" transform="translate(10.000000, 7.000000)">\n' +
+              '                        <line x1="12.5" y1="18.5" x2="21.969697" y2="18.5" id="直线-12备份" stroke="#818187" stroke-linecap="round"/>\n' +
+              '                        <line x1="35.5" y1="18.5" x2="44.969697" y2="18.5" id="直线-12备份-2" stroke="#818187" stroke-linecap="round"/>\n' +
+              '                        <rect id="矩形" stroke="#818187" x="22.5" y="15.5" width="13" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-8" fill="#DDDDE1" x="0" y="0" width="10" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-11" fill="#DDDDE1" x="47" y="0" width="10" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-9" fill="#DDDDE1" x="0" y="16" width="10" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-12" fill="#DDDDE1" x="47" y="16" width="10" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-10" fill="#DDDDE1" x="0" y="32" width="10" height="5" rx="2"/>\n' +
+              '                        <rect id="矩形备份-13" fill="#DDDDE1" x="47" y="32" width="10" height="5" rx="2"/>\n' +
+              '                        <path d="M11,3 C18.5461417,3 24.8721456,8.22403061 26.5588129,15.2528929 M26.9076362,20.7292725 C26.0454005,28.7525241 19.2522884,35 11,35" id="形状" stroke="#818187" stroke-linecap="round"/>\n' +
+              '                        <path d="M30,3 C37.6543889,3 44.0533839,8.37497993 45.6285232,15.5564778 M45.9076362,20.7292725 C45.0454005,28.7525241 38.2522884,35 30,35" id="形状" stroke="#818187" transform="translate(37.953818, 19.000000) scale(-1, 1) translate(-37.953818, -19.000000) "/>\n' +
+              '                    </g>\n' +
+              '                </g>\n' +
+              '            </g>\n' +
+              '        </g>\n' +
+              '    </g>\n' +
+              '</svg>',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'right';
+              toolBoxPlugin.resetDirection(root,'right',true);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'向左布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'left';
+
+              toolBoxPlugin.resetDirection(root,'left',true);
+              toolBoxPlugin.update(root);
+            },
+            setDom(self,dom){
+
+              return ``;
+            }
+          },
+          {
+            name:'向上布局',
+              event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'top';
+              toolBoxPlugin.resetDirection(root,'top',true);
+              toolBoxPlugin.update(root);
+            }
+          },
+          {
+            name:'向下布局',
+            event:'click',
+            func(pen){
+              let root = meta2d.findOne(pen.mindManager.rootId);
+              root.mind.direction = 'bottom';
+
+              toolBoxPlugin.resetDirection(root,'bottom',true);
+              toolBoxPlugin.update(root);
+            }
+          }
+        ]
       }
     ]
   },
@@ -345,12 +606,12 @@ export let toolBoxPlugin: any = {
     });
   },
 
-  setDirection(pen,direction){
-    return pen.mind?.direction? pen.mind.direction = direction:((pen.mind = {}) && (pen.mind.direction = direction));
-  },
+  // setDirection(pen,direction){
+  //   return pen.mind?.direction? pen.mind.direction = direction:((pen.mind = {}) && (pen.mind.direction = direction));
+  // },
 
   // 增加节点  同级设level为true
-  async addNode(pen,position = 0, type = "mindNode2"){
+  async addNode(pen,position = 0, type = "mindNode2",){
     let newPen = await meta2d.addPen({
       name:type,
       mind:{
@@ -358,7 +619,8 @@ export let toolBoxPlugin: any = {
         preNodeId:pen.id,
         children: [],
         width: 0, // 包含了自己和子节点的最大宽度
-        height: 0 // 包含了自己和子节点的最大高度
+        height: 0, // 包含了自己和子节点的最大高度
+        direction:pen.mind.direction
       },
       x:pen.x ,
       y:pen.y ,
@@ -371,6 +633,8 @@ export let toolBoxPlugin: any = {
       fontSize:16,
       borderRadius: pen.borderRadius,
     });
+
+    // 添加节点
     if(position){
       pen.mind.children.splice(position,0,newPen);
     }else{
@@ -378,6 +642,7 @@ export let toolBoxPlugin: any = {
     }
     toolBoxPlugin.combineLifeCycle(newPen); // 重写生命周期
     let rootNode = meta2d.findOne(pen.mindManager.rootId);
+    // 连线
     toolBoxPlugin.connectLine(pen,newPen,{position:pen.mind.direction,style: rootNode.mind.lineStyle});
 
     // 从根节点更新
@@ -389,8 +654,10 @@ export let toolBoxPlugin: any = {
     pluginsMessageChannels.publish('addNode',newPen);
   },
   update(pen,recursion = true){
+    if(!pen)return;
     toolBoxPlugin.calChildrenPosAndColor(pen,recursion,pen.mind.direction);
     toolBoxPlugin.reSetLinesColor(pen,recursion);
+    toolBoxPlugin.resetLineStyle(pen,recursion);
     toolBoxPlugin.render();
   },
   render(){
@@ -528,6 +795,8 @@ export let CollapseChildPlugin: any = {
     pen.mind.childrenVisible = true;
     let children = pen.mind.children;
     if(!children || children.length === 0)return;
+
+    // 让所有子集都展开
     for(let i = 0 ; i< children.length;i++){
       let child = children[i];
       child.mind.visible = true;
