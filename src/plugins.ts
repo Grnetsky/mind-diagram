@@ -1,4 +1,4 @@
-import {getRect, Pen, setGlobalAlpha, disconnectLine, connectLine as connectLineMeta, connectLine} from "@meta2d/core";
+import {Pen, disconnectLine, connectLine as connectLineMeta, connectLine} from "@meta2d/core";
 import {ToolBox, CollapseButton, createDom} from "@meta2d/mind-diagram/src/dom";
 import {
   generateColor,
@@ -184,15 +184,14 @@ export let toolBoxPlugin: any = {
     }
   },
   // 重新设置连线的位置
-  resetLinePos(pen,recursion = true){
+  resetLinePos(pen:Pen,recursion = true){
     console.log('执行resetLien');
     let children = pen.mind.children;
     if(!children || children.length === 0 )return;
     for(let i = 0 ;i<children.length;i++){
       const child = children[i];
       if(!child.connectedLines || child.connectedLines.length === 0)return;
-      let line = meta2d.findOne(child.connectedLines[0].lineId);
-
+      let line: Pen = meta2d.findOne(child.connectedLines[0].lineId);
       let prePen = meta2d.findOne(child.mind.preNodeId);
       let prePenAnchor = null;
       let lineAnchor1 = line.anchors[0];
@@ -217,8 +216,9 @@ export let toolBoxPlugin: any = {
           break;
       }
       // debugger
-      // disconnectLine(pen,penAnchor,line,lineAnchor2);
-      // disconnectLine(prePen,prePenAnchor,line,lineAnchor1);
+      console.log('pen:',pen,'\npenAnchor: ',penAnchor,'\nline:',line,'\nlineAnchor:',lineAnchor2)
+      disconnectLine(pen,penAnchor,line,lineAnchor2);
+      disconnectLine(prePen,prePenAnchor,line,lineAnchor1);
       console.log('disconnectLine');
       if(recursion){
         toolBoxPlugin.resetLinePos(child,true);
@@ -283,6 +283,7 @@ export let toolBoxPlugin: any = {
   },
 
   funcList: defaultFuncList,
+
   calcChildWandH(pen,position = 'right'){
     let children = pen.mind.children || [];
     let worldRect = meta2d.getPenRect(pen);
@@ -399,6 +400,7 @@ export let toolBoxPlugin: any = {
     pluginsMessageChannels.publish('addNode',newPen);
   },
   update(pen,recursion = true){
+    console.log('update')
     if(!pen)return;
     toolBoxPlugin.calChildrenPosAndColor(pen,recursion,pen.mind.direction);
     toolBoxPlugin.reSetLinesColor(pen,recursion);

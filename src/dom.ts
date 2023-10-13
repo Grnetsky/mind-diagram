@@ -39,7 +39,29 @@ export class ToolBox {
     this.box.className = 'toolBox';
     this.box.style.display = 'none';
     this.box.style.zIndex = '999';
+    this.box.style.display = 'flex';
+    this.box.style.justifyContent = 'center';
+    this.box.style.alignItems = 'center';
+    // this.box.style.overflow = 'hidden';
+    this.box.style.position = 'relative';
+    this.box.style.transform = 'translateX(-50%)';
     this.setStyle(this.box,style);
+    let stylesheet = document.styleSheets[0]; // 选择第一个样式表
+    stylesheet.insertRule(".toolbox_item {" +
+      "display: flex;" +
+      "justify-content: center;" +
+      "align-items: center;" +
+      "height: 100%;" +
+      "margin: 0 1px;" +
+      "cursor: pointer;" +
+      "transition: all .3s ease;" +
+      "border-radius: 5px;" +
+      "padding: 0 5px;" +
+      "}", 0);
+    stylesheet.insertRule(".toolbox_item:hover {" +
+      "background-color: #eee;" +
+      "}", 0);
+
     parentHtml.appendChild(this.box);
   }
   setStyle(box, style){
@@ -69,31 +91,8 @@ export class ToolBox {
     this.show();
   }
   renderChildren(){
-    this.box.style.display = 'flex';
-    this.box.style.justifyContent = 'center';
-    this.box.style.alignItems = 'center';
-    // this.box.style.overflow = 'hidden';
-    this.box.style.position = 'relative';
-    this.box.style.transform = 'translateX(-50%)';
     const fragmentChild = new DocumentFragment();
     this.box.innerHTML = '';
-
-    let stylesheet = document.styleSheets[0]; // 选择第一个样式表
-    stylesheet.insertRule(".toolbox_item {" +
-      "display: flex;" +
-      "justify-content: center;" +
-      "align-items: center;" +
-      "height: 100%;" +
-      "margin: 0 1px;" +
-      "cursor: pointer;" +
-      "transition: all .3s ease;" +
-      "border-radius: 5px;" +
-      "padding: 0 5px;" +
-      "}", 0);
-    stylesheet.insertRule(".toolbox_item:hover {" +
-      "background-color: #eee;" +
-      "}", 0);
-
     this.funcList.forEach(i=>{
       if(i.name){
         let itemsSpan =this.setChildDom(this.pen,i);
@@ -113,37 +112,56 @@ export class ToolBox {
     // 是否应该在这设置为WebComponent？
     const dom = document.createElement('div');
     // TODO 影子DOM 实现 自定义工具栏item样式
-    dom.attachShadow({mode:'open'}).innerHTML = item.setDom? item.setDom(item,dom) : (item.icon? `<img/ src="${item.icon}" title="${item.name}">` : item.name);
+    if(typeof item.setDom === 'function'){
+      let re = item.setDom(item,dom);
+      switch (typeof re) {
+        case "string":
+          dom.attachShadow({mode: "open"}).innerHTML = re;
+          break
+        case "object":
+          dom.attachShadow({mode: "open"}).appendChild(re);
+          break
+        default:
+          throw new Error('function setDom must return string or node object')
+      }
+    }else {
+      dom.attachShadow({mode: "open"}).innerHTML = (item.icon? `<img/ src="${item.icon}" title="${item.name}">` : item.name)
+    }
+
     // 设置style样式
     typeof item.style === 'object' && this.setStyle(dom, item.style);
     if(item.event){
       let eventFunc = function (){
-        item.func(this);
+        // 绑定事件
+        item.func(item,this,dom);
       };
       dom.addEventListener(item.event,eventFunc.bind(pen));
     }
-    if(item.children){
+    if(item.children || item.setChildrenDom){
       dom.addEventListener('click',(e)=>{
         //TODO 此处 container显示和隐藏 应当实现
+        // e.stopPropagation();
         dom.childrenDom.style.visibility === 'visible'? dom.childrenDom.style.visibility = 'hidden' : dom.childrenDom.style.visibility = 'visible';
       });
     }
     let containerDom = null;
-    if(item.children && item.children.length > 0){
+    if(item.children && item.children.length > 0 || item.setChildrenDom){
       // 是否重写dom
 
       // TODO setChildrenDom是否也需要实现影子dom
       if(
         typeof item.setChildrenDom === 'function'
       ){
-        // 重新child dom
-        let dom = item.setChildrenDom(item);
-        if(typeof dom === 'string'){
-          let div = document.createElement('div');
-          div.innerHTML = dom;
-          containerDom = div;
+        // 重新childDom
+
+        let childDom = item.setChildrenDom(item,pen,dom);
+        if(typeof childDom === 'string'){
+          let div = document.createElement('div')
+          div.innerHTML = childDom;
+          dom.shadowRoot.appendChild(div);
+          containerDom = div.childNodes[0];
         }else{
-          containerDom = dom;
+          containerDom = childDom;
         }
       }else{
         containerDom = createDom('div',{
@@ -161,18 +179,33 @@ export class ToolBox {
         });
       }
       let fragment = new DocumentFragment();
-      for(let i of item.children){
+      for(let i of item.children || []){
         let node = createDom('div',
           {
             padding: '5px 8px'
           },i.event,function(){
-            i.func(this);
+            i.func(i,this);
           }.bind(pen),'toolbox_item');
-        node.attachShadow({mode: "open"}).innerHTML = i.setDom? i.setDom(i,node) :( (i.icon && i.name)? '<span style="padding-right: 30px">'+ i.icon+'</span> <span>'+i.name+'</span>' :'<span>'+(i.name || i.icon)+'</span>');
+        if(i.setDom){
+          let re = i.setDom(i,node);
+          switch (typeof re) {
+            case "string":
+              node.innerHTML = re;
+              break
+            case "object":
+              node.appendChild(re);
+              break
+            default:
+              throw new Error('function setDom must return string or node object')
+          }
+        }else {
+          node.innerHTML = (i.icon && i.name)? '<span style="padding-right: 30px">'+ i.icon+'</span> <span>'+i.name+'</span>' :'<span>'+(i.name || i.icon)+'</span>';
+        }
         fragment.appendChild(node);
       }
       dom.style.position = 'relative';
-      containerDom.appendChild(fragment);
+      console.log(containerDom,'dom')
+      containerDom?.appendChild(fragment);
       containerDom.style.position = 'absolute';
       dom.shadowRoot.appendChild(containerDom);
       (dom as any).childrenDom = containerDom;
@@ -244,10 +277,10 @@ export class CollapseButton {
     this.box.innerHTML = _number;
   }
   hide(){
-    this.box.style.display = 'none';
+    this.box.style.visibility = 'hidden';
   }
   show(){
-    this.box.style.display = 'flex';
+    this.box.style.visibility = 'visible';
   }
   bindPen(penId){
     let pen = meta2d.findOne(penId);
