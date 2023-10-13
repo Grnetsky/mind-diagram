@@ -1,7 +1,7 @@
 import { leChartPen } from "@meta2d/le5le-charts/src/common";
 import {CollapseChildPlugin, toolBoxPlugin} from "@meta2d/mind-diagram";
 
-function createDom(name,style,even = undefined,func = undefined,className = undefined) {
+export function createDom(name,style,even = undefined,func = undefined,className = undefined) {
   // 创建dom
   let dom = document.createElement(name);
   // 设置dom样式
@@ -111,9 +111,8 @@ export class ToolBox {
    * */
   setChildDom(pen, item ){
     // 是否应该在这设置为WebComponent？
-    const dom = document.createElement('span');
-    // TODO 此处最好采用影子dom实现
-    //
+    const dom = document.createElement('div');
+    // TODO 影子DOM 实现 自定义工具栏item样式
     dom.attachShadow({mode:'open'}).innerHTML = item.setDom? item.setDom(item,dom) : (item.icon? `<img/ src="${item.icon}" title="${item.name}">` : item.name);
     // 设置style样式
     typeof item.style === 'object' && this.setStyle(dom, item.style);
@@ -125,25 +124,42 @@ export class ToolBox {
     }
     if(item.children){
       dom.addEventListener('click',(e)=>{
-
         //TODO 此处 container显示和隐藏 应当实现
         dom.childrenDom.style.visibility === 'visible'? dom.childrenDom.style.visibility = 'hidden' : dom.childrenDom.style.visibility = 'visible';
       });
     }
-    if(item.children){
-      let containerDom = createDom('div',{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        position:'absolute',
-        visibility:'hidden',
-        top:'38px',
-        backgroundColor:'#fff',
-        borderRadius:'5px',
-        padding:'3px',
-        width:'max-content',
-        boxShadow: '0px 6px 20px rgba(25,25,26,.06), 0px 2px 12px rgba(25,25,26,.04)',
-      });
+    let containerDom = null;
+    if(item.children && item.children.length > 0){
+      // 是否重写dom
+
+      // TODO setChildrenDom是否也需要实现影子dom
+      if(
+        typeof item.setChildrenDom === 'function'
+      ){
+        // 重新child dom
+        let dom = item.setChildrenDom(item);
+        if(typeof dom === 'string'){
+          let div = document.createElement('div');
+          div.innerHTML = dom;
+          containerDom = div;
+        }else{
+          containerDom = dom;
+        }
+      }else{
+        containerDom = createDom('div',{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          position:'absolute',
+          visibility:'hidden',
+          top:'38px',
+          backgroundColor:'#fff',
+          borderRadius:'5px',
+          padding:'3px',
+          width:'max-content',
+          boxShadow: '0px 6px 20px rgba(25,25,26,.06), 0px 2px 12px rgba(25,25,26,.04)',
+        });
+      }
       let fragment = new DocumentFragment();
       for(let i of item.children){
         let node = createDom('div',
