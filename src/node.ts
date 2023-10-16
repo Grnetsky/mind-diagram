@@ -1,22 +1,19 @@
-import {leChartPen} from "@meta2d/le5le-charts/src/common";
 import {
-  CollapseChildPlugin,
   installPlugin,
   MindManger,
-  openAndClosePlugin,
-  toolBoxPlugin
-} from "@meta2d/mind-diagram";
-import {mind, rectangle} from "@meta2d/core/src/diagrams";
+} from "../index";
+import {toolBoxPlugin} from "mind-plugins-core";
 import {deepClone, Pen} from "@meta2d/core";
 
 
 // 创建节点的函数
-export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentId = '') {
+export function mindNode2(pen: any, ctx: CanvasRenderingContext2D,parentId = '') {
   pen.mind = pen.mind ?? {};
   pen.mind.visible = true;
+  pen.mind.childrenVisible = pen.mind.childrenVisible ?? (pen.mind.childrenVisible = true);
   // 初始位置
   // pen.mind.direction = 'bottom';
-  let prePen = meta2d.findOne(pen.mind.preNodeId); //TODO  获取父节点 可能会有多个？暂时不处理'
+  let prePen = (window as any).meta2d.findOne(pen.mind.preNodeId); //TODO  获取父节点 可能会有多个？暂时不处理'
   pen.mind.type = 'mind-node-1'; //标记为脑图1号节点
   if(prePen){
     pen.mindManager = prePen.mindManager; // 将此pen的id设置为
@@ -30,16 +27,16 @@ export function mindNode2(pen: leChartPen, ctx: CanvasRenderingContext2D,parentI
     pen.mindManager.penId = pen.id;
     if(parentId){
       pen.mindManager.parentId = parentId; // 关联父节点
-      let parent = meta2d.findOne(parentId);
+      let parent = (window as any).meta2d.findOne(parentId);
       parent.mindManager.data.children.push(pen.id);
     }
     pen.mind.isRoot = true;
     pen.mind.lineStyle = 'polyline';
     pen.mind.direction = 'right';
     pen.mindManager.rootId = pen.id;
-    installPlugin(pen.mindManager,openAndClosePlugin);
+    // installPlugin(pen.mindManager,openAndClosePlugin);
     installPlugin(pen.mindManager,toolBoxPlugin);
-    installPlugin(pen.mindManager,CollapseChildPlugin);
+    // installPlugin(pen.mindManager,CollapseChildPlugin);
   }else {
     // (pen.mindManager.data.children.length === 0) && (pen.mind.isRoot = true);
   }

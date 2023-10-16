@@ -1,17 +1,4 @@
 
-//
-let ToolBox = {
-  funcList:[],
-  target: null,
-  // 设置功能列表
-  setFuncList(list){
-    if(Array.isArray(list) && list.length > 0){
-      this.funcList = list;
-    }
-  },
-
-};
-
 export let MindManger = {
   root: true,
   penId: '',
@@ -20,31 +7,18 @@ export let MindManger = {
     rootId:'',
     children:[],
   },
-  ToolBox: ToolBox, // toolBox工具
   installPlugin,
   uninstallPlugin
 };
 
-
-export function* generateColor() {
-  const colorList = ['#FF2318','#9C64A2','#B4C926','#0191B3',
-    '#6F6EB9','#9C64A2','#FF291B','#F4AE3C'
-  ];let index = 0;
-  while(true) {
-    yield colorList[index];
-    index = (index + 1) % colorList.length;
-  }
-}
-
 export function installPlugin(mindManager,plugin,...args) {
   if (validatePlugin(plugin)) {
     if(beforeInstallPlugin(mindManager,plugin)){
-      let pen = meta2d.findOne(mindManager.penId);
+      let pen = (window as any).meta2d.findOne(mindManager.penId);
       plugin.install(mindManager,pen,args); // 本身执行plugin的install函数
       mindManager.plugins.push(plugin);
       afterInstallPlugin(mindManager,plugin);
     }
-
   } else {
     console.warn('le5le mind-diagram warning: Your plugin is not valid');
   }
@@ -55,7 +29,7 @@ export function uninstallPlugin(mindManager,plugin,...args) {
   try {
     mindManager.plugins?.splice(mindManager.plugins?.findIndex(i=>i.name === plugin.name ),1);
     plugin.status = false;
-    plugin.uninstall();
+    plugin.uninstall?.();
     return true;
   }catch (e) {
     return false;
@@ -84,13 +58,5 @@ function beforeInstallPlugin(mindManager,plugin) {
 // 插件后置守卫
 function afterInstallPlugin(mindManager,plugin) {
   plugin.status = true;
-  console.log(mindManager.plugins);
 }
 
-class ToolBoxItem {
-  constructor() {
-  }
-  run(pen){
-
-  }
-}

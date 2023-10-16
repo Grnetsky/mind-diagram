@@ -1,11 +1,11 @@
 {
   "name": "mind-diagram",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "description": "The mind library based on le5le meta2d.",
-  "main": "index.ts",
+  "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "copy": "shx cp package.build.json ../../dist/mind-diagram/package.json",
+    "copy": "copyfiles  package.json ../../dist/mind-diagram/",
     "build": "tsc && npm run copy"
   },
   "keywords": [
@@ -26,11 +26,11 @@
   "peerDependencies": {
     "@meta2d/core": "^1.0.0"
   },
+  "dependencies": {
+    "mind-plugins-core": "file:../../../../mind-plugin-core"
+  },
   "publishConfig": {
     "access": "public"
   },
-  "gitHead": "78f2a53ca1839c89b56e2e498d17ba4eb987ad14",
-  "dependencies": {
-    "mind-plugins-core": "file:../../../mind-plugin-core"
-  }
+  "gitHead": "78f2a53ca1839c89b56e2e498d17ba4eb987ad14"
 }
