@@ -27,7 +27,7 @@
     "@meta2d/core": "^1.0.0"
   },
   "dependencies": {
-    "mind-plugins-core": "file:../../../../mind-plugin-core"
+    "mind-plugins-core": "file:C:\\Users\\Andy\\WebstormProjects\\mind-plugins-core"
   },
   "publishConfig": {
     "access": "public"

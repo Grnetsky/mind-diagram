@@ -37,13 +37,6 @@ class PubSub {
 
 export let pluginsMessageChannels = new PubSub();
 
-export let openAndClosePlugin: Plugin = {
-  name:"openAndClose",
-  status: false,
-  install:(manager,pen)=>{
-    // 获取pen对象
-  }
-};
 
 /**
  * @description 闭包 重写 pen的生命周期，为了追加回调函数
