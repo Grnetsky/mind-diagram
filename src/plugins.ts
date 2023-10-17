@@ -1,9 +1,9 @@
-import {Pen, disconnectLine, connectLine as connectLineMeta, connectLine} from "@meta2d/core";
-// import { CollapseButton } from "./dom";
+import {Pen} from "@meta2d/core";
 
 export interface Plugin {
   name:string;
   install:(manager,...args)=> void;
+  uninstall:()=>void;
   status:boolean;
 }
 
@@ -36,7 +36,6 @@ class PubSub {
 }
 
 export let pluginsMessageChannels = new PubSub();
-
 
 /**
  * @description 闭包 重写 pen的生命周期，为了追加回调函数
@@ -78,117 +77,4 @@ function rewritePenLifeCycle() {
     pen[lifeCycle] = rewriteFunc;
   };
 }
-
-// 获取函数
 export let setLifeCycleFunc = rewritePenLifeCycle();
-
-
-// export let CollapseChildPlugin: any = {
-//   name:'hideChildren',
-//   status: false,
-//
-//   // 安装插件
-//   install(manager, pen, args){
-//
-//     if(!pen.mind.singleton?.collapseButton  ){
-//       pen.mind.singleton = {};
-//       pen.mind.singleton.collapseButton = new CollapseButton((window as any).meta2d.canvas.externalElements.parentElement,{
-//       });
-//     }
-//     pluginsMessageChannels.subscribe('addNode',(data)=>{
-//       if(!data.mind.singleton?.collapseButton){
-//         data.mind.singleton = {};
-//         data.mind.singleton.collapseButton = new CollapseButton((window as any).meta2d.canvas.externalElements.parentElement,{
-//         });
-//         CollapseChildPlugin.init(data);
-//       }
-//     });
-//     // 跟随移动
-//     CollapseChildPlugin.init(pen);
-//   },
-//
-//   // 插件卸载执行函数
-//   uninstall(){
-//   },
-//   init(pen){
-//     pen.mind.childrenVisible = true;
-//     pen.mind.allChildrenCount = 0;
-//     pen.mind.singleton.collapseButton.bindPen(pen.id);
-//     pen.mind.singleton.collapseButton.translatePosition(pen);
-//     CollapseChildPlugin.combineLifeCycle(pen);
-//     pen.mind.singleton.collapseButton.hide();
-//   },
-//
-//   // 监听生命周期
-//   combineLifeCycle(target){
-//     setLifeCycleFunc(target,'onMouseEnter',(targetPen)=>{
-//       if(targetPen.mind.children.length > 0){
-//         targetPen.mind.singleton.collapseButton.translatePosition(targetPen);
-//         targetPen.mind.singleton.collapseButton.show();
-//       }
-//     });
-//
-//     setLifeCycleFunc(target,'onMouseLeave',(targetPen)=>{
-//       if(targetPen.mind.childrenVisible){
-//         targetPen.mind.singleton.collapseButton.hide();
-//       }
-//     });
-//
-//     let moveDebounce = debounce((targetPen)=>{
-//       targetPen.mind.singleton?.collapseButton?.translatePosition(targetPen);
-//       if(targetPen.mind.childrenVisible){
-//         targetPen.mind.singleton?.collapseButton?.hide();
-//       }
-//         // targetPen.mind.singleton?.collapseButton?.show();
-//     },200);
-//     setLifeCycleFunc(target,'onMove',moveDebounce);
-//   },
-//   // 折叠函数
-//   collapse(pen){
-//     pen.mind.childrenVisible = false;
-//     let children = pen.mind.children;
-//     let allCount = children.length;
-//     if(!children || children.length === 0)return 0;
-//     for(let i = 0 ; i< children.length;i++){
-//       let child = children[i];
-//       // 设置子节点的可见性为false
-//       child.mind.visible = false;
-//
-//       // 设置相关line的可见性为false
-//       let line = child.connectedLines[0];
-//       (window as any).meta2d.setVisible((window as any).meta2d.findOne(line.lineId),false,false);
-//       // 计算子节点的个数
-//       allCount += CollapseChildPlugin.collapse(child);
-//     }
-//     pen.mind.allChildrenCount = allCount;
-//     return allCount;
-//   },
-//   // 展开函数
-//   extend(pen){
-//     pen.mind.childrenVisible = true;
-//     let children = pen.mind.children;
-//     if(!children || children.length === 0)return;
-//
-//     // 让所有子集都展开
-//     for(let i = 0 ; i< children.length;i++){
-//       let child = children[i];
-//       child.mind.visible = true;
-//       let line = child.connectedLines[0];
-//       (window as any).meta2d.setVisible((window as any).meta2d.findOne(line.lineId),true,false);
-//       CollapseChildPlugin.extend(child);
-//     }
-//   }
-// };
-
-
-function debounce(func, wait) {
-  let timeout;
-  return function() {
-    const context = this;
-    const args = arguments;
-    clearTimeout(timeout);
-    timeout = setTimeout(function() {
-      func.apply(context, args);
-    }, wait);
-  };
-}

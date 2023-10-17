@@ -1,26 +1,34 @@
+import {pluginsMessageChannels} from "@meta2d/mind-diagram";
+import {deepClone} from "@meta2d/core";
 
-export let MindManger = {
+export let MindManager = {
   plugins:[],
   installPlugin,
-  uninstallPlugin
+  uninstallPlugin,
 };
 
-export function installPlugin(plugin,...args) {
-  if (validatePlugin(plugin)) {
-    if(beforeInstallPlugin(plugin)){
-      plugin.install(args); // 本身执行plugin的install函数
-      MindManger.plugins.push(plugin);
-      afterInstallPlugin(plugin);
+export function installPlugin(plugin,...args): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (validatePlugin(plugin)) {
+      if(beforeInstallPlugin(plugin)){
+        resolve();// 本身执行plugin的install函数
+      }
+    } else {
+      console.warn('le5le mind-diagram warning: Your plugin is not valid');
+      reject('no valid');
     }
-  } else {
-    console.warn('le5le mind-diagram warning: Your plugin is not valid');
-  }
+  }).then(()=>{
+    plugin.install(args);
+    MindManager.plugins.push(plugin);
+    afterInstallPlugin(plugin);
+  });
+
 }
 
 // 卸载插件
 export function uninstallPlugin(plugin,...args) {
   try {
-    MindManger.plugins?.splice(MindManger.plugins?.findIndex(i=>i.name === plugin.name ),1);
+    MindManager.plugins?.splice(MindManager.plugins?.findIndex(i=>i.name === plugin.name ),1);
     plugin.status = false;
     plugin.uninstall?.();
     return true;
@@ -37,7 +45,7 @@ function validatePlugin(plugin) {
 // 插件前置钩子
 function beforeInstallPlugin(plugin) {
   //检测是否存在
-  let pluginIndex = MindManger.plugins?.findIndex(i=>i.name === plugin.name );
+  let pluginIndex = MindManager.plugins?.findIndex(i=>i.name === plugin.name );
   if(pluginIndex !== -1)return false;
   // doOtherThings
   return true;
@@ -48,3 +56,21 @@ function afterInstallPlugin(plugin) {
   plugin.status = true;
 }
 
+export async function getPlugin(name){
+  let plugin = await Promise.resolve().then(()=>
+    MindManager.plugins.find(i=>i.name === name)
+  );
+  return plugin;
+}
+
+/**
+ * @description 同步方式获取插件  通过消除异步传染性的方式获取插件*/
+export function getPluginSync(){
+  try {
+    let plugin = await Promise.resolve().then(()=>
+      MindManager.plugins.find(i=>i.name === name)
+    );
+  }catch (e) {
+
+  }
+}
