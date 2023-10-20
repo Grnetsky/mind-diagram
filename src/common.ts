@@ -2,33 +2,51 @@ import {pluginsMessageChannels} from "@meta2d/mind-diagram";
 import {deepClone} from "@meta2d/core";
 
 export let MindManager = {
+  rootIds:[],
   plugins:[],
   installPlugin,
   uninstallPlugin,
 };
 
-export function installPlugin(plugin,...args): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+// export function installPlugin(plugin,...args): Promise<void> {
+//   return new Promise<void>((resolve, reject) => {
+//     if (validatePlugin(plugin)) {
+//       if(beforeInstallPlugin(plugin)){
+//         resolve();// 本身执行plugin的install函数
+//       }
+//     } else {
+//       console.warn('le5le mind-diagram warning: Your plugin is not valid');
+//       reject('no valid');
+//     }
+//   }).then(()=>{
+//     plugin.install(args);
+//     MindManager.plugins.push(plugin);
+//     afterInstallPlugin(plugin);
+//   });
+//
+// }
+
+export function installPlugin(plugin,...args) {
     if (validatePlugin(plugin)) {
       if(beforeInstallPlugin(plugin)){
-        resolve();// 本身执行plugin的install函数
-      }
+        plugin.install(args);
+        MindManager.plugins.push(plugin);
+        afterInstallPlugin(plugin);      }
     } else {
       console.warn('le5le mind-diagram warning: Your plugin is not valid');
-      reject('no valid');
     }
-  }).then(()=>{
-    plugin.install(args);
-    MindManager.plugins.push(plugin);
-    afterInstallPlugin(plugin);
-  });
-
 }
 
+
 // 卸载插件
-export function uninstallPlugin(plugin,...args) {
+export function uninstallPlugin(pluginName,...args) {
   try {
-    MindManager.plugins?.splice(MindManager.plugins?.findIndex(i=>i.name === plugin.name ),1);
+    let pluginIndex: any = MindManager.plugins?.findIndex(i=>i.name === pluginName );
+    if(pluginIndex === -1){
+      return false;
+    }
+    let plugin = MindManager.plugins[pluginIndex];
+    MindManager.plugins?.splice(pluginIndex,1);
     plugin.status = false;
     plugin.uninstall?.();
     return true;
@@ -56,21 +74,7 @@ function afterInstallPlugin(plugin) {
   plugin.status = true;
 }
 
-export async function getPlugin(name){
-  let plugin = await Promise.resolve().then(()=>
-    MindManager.plugins.find(i=>i.name === name)
-  );
+export function getPlugin(name){
+  let plugin = MindManager.plugins.find(i=>i.name === name);
   return plugin;
-}
-
-/**
- * @description 同步方式获取插件  通过消除异步传染性的方式获取插件*/
-export function getPluginSync(){
-  try {
-    let plugin = await Promise.resolve().then(()=>
-      MindManager.plugins.find(i=>i.name === name)
-    );
-  }catch (e) {
-
-  }
 }
