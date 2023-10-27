@@ -6,6 +6,7 @@ export let MindManager = {
   plugins:[],
   installPlugin,
   uninstallPlugin,
+  transfer:{}  // 中转函数
 };
 
 // export function installPlugin(plugin,...args): Promise<void> {
@@ -31,7 +32,8 @@ export function installPlugin(plugin,...args) {
       if(beforeInstallPlugin(plugin)){
         plugin.install(args);
         MindManager.plugins.push(plugin);
-        afterInstallPlugin(plugin);      }
+        afterInstallPlugin(plugin);
+      }
     } else {
       console.warn('le5le mind-diagram warning: Your plugin is not valid');
     }
