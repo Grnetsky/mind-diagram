@@ -6,6 +6,7 @@ export function mindNode2(pen: any, ctx: CanvasRenderingContext2D, parentId = ''
 
   if(!pen.onClick){
   }
+  // TODO 能否 在此进行拦截操作？ 进行扩展图元 用于添加更多功能
   return nodePen(pen,ctx);
 }
 function mouseEnter(pen) {

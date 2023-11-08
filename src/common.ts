@@ -6,7 +6,7 @@ export let MindManager = {
   plugins:[],
   installPlugin,
   uninstallPlugin,
-  transfer:{}  // 中转函数
+  _env:{}  // 中转函数
 };
 
 // export function installPlugin(plugin,...args): Promise<void> {
@@ -31,11 +31,14 @@ export function installPlugin(plugin,...args) {
     if (validatePlugin(plugin)) {
       if(beforeInstallPlugin(plugin)){
         plugin.install(args);
+        console.log('installPlugin',plugin.name);
         MindManager.plugins.push(plugin);
         afterInstallPlugin(plugin);
+        return true;
       }
     } else {
       console.warn('le5le mind-diagram warning: Your plugin is not valid');
+      return false;
     }
 }
 
@@ -50,9 +53,10 @@ export function uninstallPlugin(pluginName,...args) {
     let plugin = MindManager.plugins[pluginIndex];
     MindManager.plugins?.splice(pluginIndex,1);
     plugin.status = false;
-    plugin.uninstall?.();
+    plugin.uninstall?.(args);
     return true;
   }catch (e) {
+    console.log('uninstallPlugin error：',e.message);
     return false;
   }
 }
